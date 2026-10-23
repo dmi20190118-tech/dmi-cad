@@ -1,0 +1,78 @@
+name: Prepare Drive transfer
+on:
+  push:
+    paths: ['.github/workflows/drive-transfer.yml']
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  split:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: DMI-CAD-Windows-x64
+          run-id: 39940254766
+          github-token: ${{ github.token }}
+          path: original
+      - name: Split and verify
+        shell: pwsh
+        run: |
+          New-Item transfer -ItemType Directory
+          $source = Get-Item original/DMI-CAD-Setup-0.2.0.exe
+          $reader = [System.IO.File]::OpenRead($source.FullName)
+          try {
+            $buffer = New-Object byte[] (70 * 1024 * 1024)
+            $index = 1
+            while (($count = $reader.Read($buffer, 0, $buffer.Length)) -gt 0) {
+              $part = "transfer/DMI-CAD-Setup-0.2.0.part$index"
+              $output = [System.IO.File]::Create([System.IO.Path]::GetFullPath($part))
+              try { $output.Write($buffer, 0, $count) } finally { $output.Dispose() }
+              $index++
+            }
+          } finally { $reader.Dispose() }
+          if ($index -ne 3) { throw "Expected exactly two transfer parts." }
+          $merged = [System.IO.File]::Create([System.IO.Path]::GetFullPath('merged.exe'))
+          try {
+            foreach ($part in @('transfer/DMI-CAD-Setup-0.2.0.part1','transfer/DMI-CAD-Setup-0.2.0.part2')) {
+              $inputFile = [System.IO.File]::OpenRead([System.IO.Path]::GetFullPath($part))
+              try { $inputFile.CopyTo($merged) } finally { $inputFile.Dispose() }
+            }
+          } finally { $merged.Dispose() }
+          $hash = (Get-FileHash $source.FullName -Algorithm SHA256).Hash
+          if ((Get-FileHash merged.exe -Algorithm SHA256).Hash -ne $hash) { throw "Reconstruction hash mismatch." }
+          @'
+          @echo off
+          cd /d "%~dp0"
+          if not exist "DMI-CAD-Setup-0.2.0.part1" goto missing
+          if not exist "DMI-CAD-Setup-0.2.0.part2" goto missing
+          copy /b "DMI-CAD-Setup-0.2.0.part1"+"DMI-CAD-Setup-0.2.0.part2" "DMI-CAD-Setup-0.2.0.exe"
+          if errorlevel 1 goto missing
+          echo Installer restored: DMI-CAD-Setup-0.2.0.exe
+          echo Run that EXE to install.
+          pause
+          exit /b 0
+          :missing
+          echo Put both .part files and this CMD in the same folder and retry.
+          pause
+          exit /b 1
+          '@ | Set-Content transfer/Restore-Installer.cmd -Encoding ascii
+          "SHA256 DMI-CAD-Setup-0.2.0.exe: $hash" | Set-Content transfer/SHA256.txt -Encoding ascii
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Drive-part1
+          path: transfer/*.part1
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Drive-part2
+          path: transfer/*.part2
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Drive-restore
+          path: |
+            transfer/*.cmd
+            transfer/SHA256.txt
+          compression-level: 0
