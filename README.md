@@ -1,30 +1,43 @@
-# DMI CAD 0.1 — Windows 인터페이스 시제품
+# DMI CAD 0.2 — Windows CAD 파일 뷰어
 
-상단 명령 탭, 왼쪽 모델 트리, 가운데 작업 화면으로 구성한 독립적인 CAD 인터페이스 시제품입니다. SOLIDWORKS의 코드, 로고, 자산을 사용하지 않습니다.
+Windows 10/11 x64에서 파일을 로컬로 읽고, 솔리드웍스 방식의 기본 마우스 조작으로 회전/이동/확대합니다. 파일은 서버로 업로드하지 않습니다.
 
-## 구현된 동작
-- 예제 직육면체 표시, 너비/깊이/높이 변경
-- 가운데 버튼 드래그 회전, Ctrl+가운데 버튼 화면 이동
-- Shift+가운데 버튼 확대/축소, 휠 아래로 확대·위로 축소
-- 가운데 버튼 더블클릭 화면 맞춤
-- 이후 조작 개발 기준: [마우스 호환 요구사항](MOUSE-CONTROLS.md)
-- 등각/정면/평면 및 와이어프레임 보기
-- 새 부품, 자체 .dmicad 파일 저장과 불러오기
+## 지원 형식
 
-선/곡면 편집, 실제 스케치 돌출, STEP/DWG 입출력, 정밀 CAD 형상 엔진, NC/CAM은 아직 없습니다. 해당 도구는 개발 예정 안내를 표시합니다.
+| 형식 | 기능 / 제한 |
+|---|---|
+| STEP (.step/.stp) | Open CASCADE로 읽기, 삼각 메시 표시, STEP/IGES/STL 내보내기 |
+| IGES (.iges/.igs) | Open CASCADE로 읽기, 삼각 메시 표시, STEP/IGES/STL 내보내기 |
+| STL | ASCII/바이너리 읽기 및 바이너리 STL 내보내기 |
+| DXF | ASCII LINE, ARC, CIRCLE, 직선 LWPOLYLINE 표시. 블록·텍스트·스플라인·불지·기울어진 OCS 등 미지원 요소가 있으면 오류로 중단 |
+| .dmicad | 기존 예제 직육면체 프로젝트 |
 
-## Windows 설치파일
-[Actions](https://github.com/dmi20190118-tech/dmi-cad/actions) → Build Windows installer → 성공한 실행 → Artifacts → DMI-CAD-Windows-x64에서 ZIP을 받으세요.
-압축을 풀고 DMI-CAD-Setup-0.1.0.exe를 실행하세요.
-Windows 10/11 x64용이며 .NET 런타임을 포함합니다. 초기 시제품이며 코드 서명이 없습니다.
+SOLIDWORKS (.sldprt/.sldasm), CATIA (.CATPart/.CATProduct), Cimatron/Elite 원본, DWG는 직접 읽지 못합니다. 2025 등 특정 버전 호환도 보장하지 않습니다. 별도 상용 변환 SDK와 라이선스가 필요합니다. 원래 CAD에서 STEP/IGES/기본 2D DXF로 내보내서 여세요.
 
-## 빌드
-Windows에서 .NET 8 SDK로 다음 명령을 실행합니다.
+ISO가 NC G코드를 뜻한다면 별도의 가공 경로 기능이 필요합니다. ISO 10303 형식은 STEP으로 처리합니다.
 
-```powershell
-dotnet publish DmiCad.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
-```
+읽은 모델은 표시용이며 편집 가능한 피처 이력을 복원하지 않습니다. 재질·조립 트리·PMI·레이어·텍스트 보존을 보장하지 않습니다. STEP↔IGES 변환 시에도 속성 손실 가능성이 있습니다. STL은 삼각 메시로 변환되어 정밀 곡면 정보가 사라집니다.
 
-Inno Setup 6에서 installer.iss를 컴파일하면 설치파일을 만듭니다.
+파일당 128 MB, 메시 25만 삼각형, 엔진 처리 3분으로 제한합니다. 대형 모델은 거친 메시/분할 파일로 내보내세요. 크기 표시는 파일 좌표 기준입니다. STL/DXF는 원래 내보내기 단위를 별도로 확인하세요. 오류가 나면 이전 모델을 유지합니다.
 
-GitHub Actions는 컴파일, 주 창 시작 확인, 설치파일 생성을 수행하도록 구성되어 있습니다. 전체 UI 조작과 설치/제거의 수동 검증은 별도로 필요합니다.
+## 사용
+파일 → 열기에서 모델을 선택합니다. 변환 / 내보내기에서 출력 형식을 고릅니다. DXF 선 도면을 STL 입체나 STEP 솔리드로 자동 변환하지 않습니다.
+
+- 가운데 버튼 드래그: 회전
+- Ctrl+가운데 버튼: 이동
+- Shift+가운데 버튼: 확대/축소
+- 휠 아래로 확대, 위로 축소 (포인터 기준)
+- 가운데 버튼 더블클릭: 화면 맞춤
+
+정밀 스케치/곡면 편집, CAM/NC 검증은 아직 없습니다.
+
+## 설치
+[GitHub Actions](https://github.com/dmi20190118-tech/dmi-cad/actions)에서 성공한 최신 실행의 Artifacts → DMI-CAD-Windows-x64를 받으세요.
+ZIP을 풀고 DMI-CAD-Setup-0.2.0.exe를 실행합니다. .NET과 CAD 엔진이 포함되며 별도 Python 설치가 필요 없습니다. 설치파일은 코드 서명이 없는 시제품입니다.
+
+## 검증
+Windows CI에서 STL/DXF 입출력 검사, 번들 엔진의 STEP/IGES/STL 변환 검사, 창 시작 검사 후 설치파일을 생성합니다.
+실제 고객 파일의 형상 정확도와 모든 UI 조작은 추가 검증이 필요합니다.
+
+## 개발
+.NET 8 Windows Forms, Python 3.11, cadquery-ocp 7.8 계열, PyInstaller를 사용합니다. 정확한 빌드 절차는 .github/workflows/windows.yml을 참고하세요. 배포 라이선스와 소스 위치는 THIRD-PARTY.md에 있습니다.
