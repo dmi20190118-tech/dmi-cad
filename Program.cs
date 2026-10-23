@@ -31,6 +31,7 @@ sealed class CadWindow : Form
     readonly Label info = new() { AutoSize = false, Height = 62, Dock = DockStyle.Bottom,
         Text = "인터페이스 시제품 0.1\n정밀 CAD / CAM 엔진 미포함", Padding = new Padding(12), ForeColor = Color.DimGray };
     Model model = new();
+    Geometry? imported;
     bool loading;
     public CadWindow()
     {
@@ -43,6 +44,7 @@ sealed class CadWindow : Form
         file.DropDownItems.Add("새 부품", null, (_, _) => NewPart());
         file.DropDownItems.Add("열기...", null, (_, _) => Open());
         file.DropDownItems.Add("저장...", null, (_, _) => Save());
+        file.DropDownItems.Add("변환 / 내보내기...", null, (_, _) => Export());
         file.DropDownItems.Add("종료", null, (_, _) => Close());
         menu.Items.Add(file);
         var v = new ToolStripMenuItem("보기");
@@ -127,7 +129,7 @@ sealed class CadWindow : Form
     }
     void Notice(string feature) => MessageBox.Show(this, feature + " 기능은 이 인터페이스 시제품에 아직 구현되지 않았습니다.", "개발 예정");
     void Sketch() { view.Sketch = !view.Sketch; view.SetView(view.Sketch ? "top" : "iso"); status.Text = view.Sketch ? "평면 미리보기 · 스케치 편집은 개발 예정" : "3D 보기"; }
-    void Extrude() { model.Visible = true; view.Sketch = false; view.SetView("iso"); RefreshTree(); status.Text = "예제 직육면체 표시 · 왼쪽 치수로 크기 변경"; }
+    void Extrude() { imported = null; view.Geometry = null; width.Enabled = depth.Enabled = height.Enabled = true; model.Visible = true; view.Sketch = false; view.SetView("iso"); RefreshTree(); status.Text = "예제 직육면체 표시 · 왼쪽 치수로 크기 변경"; }
     void UpdateDimensions()
     {
         if (loading) return;
@@ -136,13 +138,14 @@ sealed class CadWindow : Form
     }
     void RefreshTree()
     {
-        tree.Nodes.Clear(); var root = tree.Nodes.Add("▣ 부품1");
+        tree.Nodes.Clear(); var root = tree.Nodes.Add("▣ " + (imported?.Name ?? "부품1"));
+        if (imported != null) { root.Nodes.Add($"삼각형: {imported.Triangles.Count:N0}"); root.Nodes.Add($"선 요소: {imported.Lines.Count:N0}"); root.Nodes.Add($"크기: {imported.Size.X:G5} × {imported.Size.Y:G5} × {imported.Size.Z:G5} (파일 좌표)"); root.Expand(); view.Invalidate(); return; }
         root.Nodes.Add("재질 <지정되지 않음>"); root.Nodes.Add("정면 기준면");
         root.Nodes.Add("평면 기준면"); root.Nodes.Add("우측 기준면"); root.Nodes.Add("원점");
         if (model.Visible) root.Nodes.Add("예제 돌출 1");
         root.Expand(); view.Invalidate();
     }
-    void NewPart() { model = new Model { Visible = false }; Sync(); status.Text = "새 부품 · 예제 돌출을 눌러 입체 표시"; }
+    void NewPart() { imported = null; view.Geometry = null; width.Enabled = depth.Enabled = height.Enabled = true; model = new Model { Visible = false }; Sync(); status.Text = "새 부품 · 예제 돌출을 눌러 입체 표시"; }
     void Sync()
     {
         loading = true; width.Value = model.Width; depth.Value = model.Depth; height.Value = model.Height;
@@ -150,30 +153,63 @@ sealed class CadWindow : Form
     }
     void Save()
     {
+        if (imported != null) { Export(); return; }
         using var dialog = new SaveFileDialog { Filter = "DMI CAD 프로젝트 (*.dmicad)|*.dmicad", FileName = "부품1.dmicad" };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         try { File.WriteAllText(dialog.FileName, JsonSerializer.Serialize(model)); status.Text = "저장됨"; }
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "저장 실패"); }
     }
-    void Open()
+    async void Open()
     {
-        using var dialog = new OpenFileDialog { Filter = "DMI CAD 프로젝트 (*.dmicad)|*.dmicad" };
+        using var dialog = new OpenFileDialog { Filter = "지원 CAD 파일|*.step;*.stp;*.iges;*.igs;*.stl;*.dxf;*.dmicad|STEP|*.step;*.stp|IGES|*.iges;*.igs|STL|*.stl|기본 ASCII DXF|*.dxf|DMI 프로젝트|*.dmicad|모든 파일|*.*" };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         try
         {
+            if (!Path.GetExtension(dialog.FileName).Equals(".dmicad", StringComparison.OrdinalIgnoreCase))
+            {
+                Enabled = false; status.Text = "파일을 읽고 있습니다…"; Update();
+                var geometry = await CadFiles.Read(dialog.FileName);
+                imported = geometry; view.Geometry = geometry; view.Sketch = false;
+                width.Enabled = depth.Enabled = height.Enabled = false;
+                Text = "DMI CAD — " + geometry.Name;
+                info.Text = "가져온 형상 보기 · 편집 불가\n크기는 파일 좌표 기준 (STL/DXF 단위 확인 필요)";
+                RefreshTree(); view.SetView(geometry.Triangles.Count == 0 ? "top" : "iso"); view.Fit();
+                status.Text = "불러오기 완료 · " + geometry.Name;
+                return;
+            }
             if (new FileInfo(dialog.FileName).Length > 65536) throw new Exception("프로젝트 파일이 너무 큽니다.");
             var m = JsonSerializer.Deserialize<Model>(File.ReadAllText(dialog.FileName)) ?? throw new Exception("잘못된 파일입니다.");
             if (m.Width < 1 || m.Width > 10000 || m.Depth < 1 || m.Depth > 10000 || m.Height < 1 || m.Height > 10000)
                 throw new Exception("치수 범위는 1~10000 mm입니다.");
-            model = m; Sync(); status.Text = "불러오기 완료";
+            imported = null; view.Geometry = null; width.Enabled = depth.Enabled = height.Enabled = true; model = m; Sync(); status.Text = "불러오기 완료";
         }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, "열기 실패"); }
+        catch (Exception ex) { status.Text = "불러오기 실패"; MessageBox.Show(this, ex.Message, "열기 실패"); }
+        finally { Enabled = true; }
+    }
+    async void Export()
+    {
+        var geometry = imported;
+        if (geometry == null) { MessageBox.Show(this, "먼저 STEP, IGES 또는 STL 파일을 열어 주세요."); return; }
+        bool cad = Path.GetExtension(geometry.Source).ToLowerInvariant() is ".step" or ".stp" or ".iges" or ".igs";
+        using var dialog = new SaveFileDialog { Filter = cad ? "STL 메시|*.stl|STEP 형상|*.step|IGES 형상|*.iges" : "STL 메시|*.stl", FileName = Path.GetFileNameWithoutExtension(geometry.Name) };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        string temp = Path.Combine(Path.GetDirectoryName(dialog.FileName)!, Guid.NewGuid() + Path.GetExtension(dialog.FileName));
+        try
+        {
+            Enabled = false; status.Text = "변환 중…";
+            if (cad) await CadFiles.Convert(geometry.Source, temp);
+            else await Task.Run(() => CadFiles.WriteStl(geometry, temp));
+            File.Move(temp, dialog.FileName, true); status.Text = "내보내기 완료";
+        }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "변환 실패"); }
+        finally { Enabled = true; if (File.Exists(temp)) File.Delete(temp); }
     }
 }
 
 sealed class Viewport : Control
 {
     public Model Model { get; set; } = new();
+    public Geometry? Geometry { get; set; }
     public bool Wire { get; set; }
     public bool Sketch { get; set; }
     double yaw = -.65, pitch = .5;
@@ -247,7 +283,7 @@ sealed class Viewport : Control
         int[][] faces = [[0,1,2,3],[4,7,6,5],[0,4,5,1],[1,5,6,2],[2,6,7,3],[3,7,4,0]];
         Color[] colors = [Color.FromArgb(103,139,172),Color.FromArgb(184,208,228),Color.FromArgb(130,168,199),
             Color.FromArgb(158,188,212),Color.FromArgb(113,152,184),Color.FromArgb(147,179,205)];
-        if (Model.Visible)
+        if (Geometry == null && Model.Visible)
         {
             foreach (int i in Enumerable.Range(0,6).OrderByDescending(i => faces[i].Average(n => rotated[n].z)))
             {
@@ -256,8 +292,34 @@ sealed class Viewport : Control
                 using var edge = new Pen(Color.FromArgb(49,77,103),1.4f); g.DrawPolygon(edge,poly);
             }
         }
+        if (Geometry is Geometry geometry)
+        {
+            float importedScale = Math.Min(Width, Height) * .65f / geometry.Extent * zoom;
+            PointF Project(System.Numerics.Vector3 point)
+            {
+                var q = point - geometry.Center; var p = Rotate(q.X, q.Y, q.Z);
+                return new PointF(Width/2f + pan.X + (float)p.x*importedScale, Height/2f + pan.Y - (float)p.y*importedScale);
+            }
+            using var edge = new Pen(Color.FromArgb(49,77,103), .7f);
+            var ordered = geometry.Triangles.Select(t => new { Vertices = t, Depth = t.Average(p => { var q = p - geometry.Center; return Rotate(q.X,q.Y,q.Z).z; }) }).OrderByDescending(t => t.Depth);
+            foreach (var triangle in ordered)
+            {
+                var polygon = triangle.Vertices.Select(Project).ToArray();
+                if (!Wire)
+                {
+                    var normal = System.Numerics.Vector3.Cross(triangle.Vertices[1]-triangle.Vertices[0],triangle.Vertices[2]-triangle.Vertices[0]);
+                    if (normal.LengthSquared() > 0) normal = System.Numerics.Vector3.Normalize(normal);
+                    var n = Rotate(normal.X,normal.Y,normal.Z);
+                    int shade = (int)(130 + 90 * Math.Abs(n.z));
+                    using var fill = new SolidBrush(Color.FromArgb(shade-30,shade-10,Math.Min(255,shade+15)));
+                    g.FillPolygon(fill,polygon);
+                }
+                else g.DrawPolygon(edge,polygon);
+            }
+            foreach (var line in geometry.Lines) if (line.Length >= 2) g.DrawLines(edge,line.Select(Project).ToArray());
+        }
         using var text = new SolidBrush(Color.FromArgb(76,91,110));
-        g.DrawString(Sketch ? "평면 미리보기" : "부품1 · 3D 작업 화면", Font, text, 18,18);
+        g.DrawString(Geometry?.Name ?? (Sketch ? "평면 미리보기" : "부품1 · 3D 작업 화면"), Font, text, 18,18);
         g.DrawString("가운데: 회전  |  Ctrl+가운데: 이동  |  휠: 확대/축소", Font, text, 18, Height - 32);
         float ox = Width - 76, oy = Height - 76;
         var axes = new[] { (1.0,0.0,0.0,"X",Color.Firebrick),(0.0,1.0,0.0,"Y",Color.ForestGreen),(0.0,0.0,1.0,"Z",Color.RoyalBlue) };
