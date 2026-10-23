@@ -198,14 +198,24 @@ sealed class Viewport : Control
             else
             {
                 yaw += dx * .01;
-                pitch = Math.Clamp(pitch + dy * .01, -1.55, 1.55);
+                pitch = Math.Clamp(pitch + dy * .01, -Math.PI / 2, Math.PI / 2);
             }
             previous = e.Location;
             Invalidate();
         };
         // SOLIDWORKS default wheel direction: toward user zooms in.
-        MouseWheel += (_, e) => { zoom = Math.Clamp(zoom * (float)Math.Pow(1.12, -e.Delta / 120.0), .15f, 8f); Invalidate(); };
+        MouseWheel += (_, e) => ZoomAt(e.Location, (float)Math.Pow(1.12, -e.Delta / 120.0));
         MouseDoubleClick += (_, e) => { if (e.Button == MouseButtons.Middle) Fit(); };
+    }
+    void ZoomAt(Point anchor, float factor)
+    {
+        float next = Math.Clamp(zoom * factor, .15f, 8f);
+        float ratio = next / zoom;
+        // Keep the model point under the pointer fixed, including at zoom limits.
+        float ax = anchor.X - Width / 2f, ay = anchor.Y - Height / 2f;
+        pan = new PointF(ax - (ax - pan.X) * ratio, ay - (ay - pan.Y) * ratio);
+        zoom = next;
+        Invalidate();
     }
     public void Fit() { zoom = 1; pan = PointF.Empty; Invalidate(); }
     public void SetView(string name)
