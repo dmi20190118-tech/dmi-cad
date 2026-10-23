@@ -1,0 +1,244 @@
+using System.Drawing.Drawing2D;
+using System.Text.Json;
+
+namespace DmiCad;
+
+static class Program
+{
+    [STAThread]
+    static void Main()
+    {
+        ApplicationConfiguration.Initialize();
+        Application.Run(new CadWindow());
+    }
+}
+
+public sealed class Model
+{
+    public decimal Width { get; set; } = 100;
+    public decimal Depth { get; set; } = 70;
+    public decimal Height { get; set; } = 35;
+    public bool Visible { get; set; } = true;
+}
+
+sealed class CadWindow : Form
+{
+    readonly Viewport view = new();
+    readonly TreeView tree = new();
+    readonly ToolStripStatusLabel status = new("준비");
+    readonly NumericUpDown width = Number(100), depth = Number(70), height = Number(35);
+    readonly TabControl ribbon = new();
+    readonly Label info = new() { AutoSize = false, Height = 62, Dock = DockStyle.Bottom,
+        Text = "인터페이스 시제품 0.1\n정밀 CAD / CAM 엔진 미포함", Padding = new Padding(12), ForeColor = Color.DimGray };
+    Model model = new();
+    bool loading;
+    public CadWindow()
+    {
+        Text = "DMI CAD — 부품1 | 인터페이스 미리보기";
+        Width = 1440; Height = 920; MinimumSize = new Size(980, 640);
+        Font = new Font("Segoe UI", 9);
+        BackColor = Color.FromArgb(242, 244, 247);
+        var menu = new MenuStrip { BackColor = Color.FromArgb(36, 45, 61), ForeColor = Color.White };
+        var file = new ToolStripMenuItem("파일");
+        file.DropDownItems.Add("새 부품", null, (_, _) => NewPart());
+        file.DropDownItems.Add("열기...", null, (_, _) => Open());
+        file.DropDownItems.Add("저장...", null, (_, _) => Save());
+        file.DropDownItems.Add("종료", null, (_, _) => Close());
+        menu.Items.Add(file);
+        var v = new ToolStripMenuItem("보기");
+        v.DropDownItems.Add("등각 보기", null, (_, _) => view.SetView("iso"));
+        v.DropDownItems.Add("정면 보기", null, (_, _) => view.SetView("front"));
+        v.DropDownItems.Add("평면 보기", null, (_, _) => view.SetView("top"));
+        menu.Items.Add(v);
+        var help = new ToolStripMenuItem("도움말");
+        help.Click += (_, _) => MessageBox.Show(this,
+            "DMI CAD 인터페이스 시제품\n\n왼쪽 마우스 드래그: 회전\n휠: 확대/축소\n치수 입력: 예제 직육면체 변경\n\n독립적인 시제품이며 SOLIDWORKS 제품이 아닙니다.\n선/곡면 편집 및 정밀 모델링은 아직 지원하지 않습니다.",
+            "DMI CAD");
+        menu.Items.Add(help);
+        MainMenuStrip = menu;
+        ribbon.Dock = DockStyle.Top; ribbon.Height = 118;
+        AddRibbon("피처", ("▱", "예제 돌출", Extrude), ("↻", "회전", () => Notice("회전 피처")),
+            ("⌒", "필렛", () => Notice("필렛")), ("◩", "모따기", () => Notice("모따기")),
+            ("⊞", "패턴", () => Notice("패턴")));
+        AddRibbon("스케치", ("✎", "스케치 모드", Sketch), ("╱", "선", () => Notice("선 편집")),
+            ("□", "사각형", () => Notice("사각형 스케치")), ("○", "원", () => Notice("원 스케치")),
+            ("↔", "치수", () => width.Focus()));
+        AddRibbon("곡면", ("▧", "곡면 생성", () => Notice("곡면 모델링")),
+            ("⌁", "스윕", () => Notice("스윕")), ("▱", "로프트", () => Notice("로프트")));
+        AddRibbon("표시", ("◆", "등각", () => view.SetView("iso")), ("▣", "정면", () => view.SetView("front")),
+            ("⊞", "평면", () => view.SetView("top")), ("◇", "와이어프레임", () => { view.Wire = !view.Wire; view.Invalidate(); }),
+            ("⊙", "화면 맞춤", () => view.Fit()));
+        var bottom = new StatusStrip();
+        bottom.Items.Add(status);
+        bottom.Items.Add(new ToolStripStatusLabel { Spring = true });
+        bottom.Items.Add(new ToolStripStatusLabel("MMGS · mm   |   인터페이스 시제품"));
+        var split = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1,
+            SplitterDistance = 260, Panel1MinSize = 230, Panel2MinSize = 400, BackColor = Color.White };
+        tree.Dock = DockStyle.Fill; tree.BorderStyle = BorderStyle.None;
+        tree.HideSelection = false; tree.ItemHeight = 27;
+        tree.AfterSelect += (_, e) => { status.Text = e.Node?.Text ?? "준비"; };
+        var properties = new Panel { Height = 190, Dock = DockStyle.Bottom, Padding = new Padding(12) };
+        var title = new Label { Text = "예제 입체 치수 (mm)", Dock = DockStyle.Top, Height = 28, Font = new Font(Font, FontStyle.Bold) };
+        properties.Controls.Add(title);
+        var grid = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 130, ColumnCount = 2, RowCount = 3 };
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42));
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58));
+        string[] labels = ["너비 X", "깊이 Y", "높이 Z"];
+        NumericUpDown[] numbers = [width, depth, height];
+        for (int i = 0; i < 3; i++)
+        {
+            grid.Controls.Add(new Label { Text = labels[i], AutoSize = true, Padding = new Padding(0, 7, 0, 0) }, 0, i);
+            numbers[i].Dock = DockStyle.Fill; grid.Controls.Add(numbers[i], 1, i);
+            numbers[i].ValueChanged += (_, _) => UpdateDimensions();
+        }
+        properties.Controls.Add(grid);
+        var heading = new Label { Text = "  모델 트리", Height = 34, Dock = DockStyle.Top,
+            TextAlign = ContentAlignment.MiddleLeft, BackColor = Color.FromArgb(231, 235, 241) };
+        split.Panel1.Controls.Add(tree); split.Panel1.Controls.Add(properties);
+        split.Panel1.Controls.Add(info); split.Panel1.Controls.Add(heading);
+        split.Panel2.Controls.Add(view);
+        var viewbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 38, BackColor = Color.White };
+        foreach (var name in new[] { "등각", "정면", "평면", "화면 맞춤" })
+        {
+            string n = name;
+            var b = new Button { Text = n, AutoSize = true, FlatStyle = FlatStyle.Flat, Height = 29 };
+            b.FlatAppearance.BorderSize = 0;
+            b.Click += (_, _) => { if (n == "화면 맞춤") view.Fit(); else view.SetView(n == "등각" ? "iso" : n == "정면" ? "front" : "top"); };
+            viewbar.Controls.Add(b);
+        }
+        split.Panel2.Controls.Add(viewbar);
+        Controls.Add(split); Controls.Add(ribbon); Controls.Add(menu); Controls.Add(bottom);
+        view.Model = model; RefreshTree();
+    }
+    static NumericUpDown Number(decimal value) => new() { Minimum = 1, Maximum = 10000, DecimalPlaces = 1, Value = value };
+    void AddRibbon(string name, params (string icon, string label, Action action)[] items)
+    {
+        var page = new TabPage(name) { BackColor = Color.FromArgb(247, 248, 250) };
+        var flow = new FlowLayoutPanel { Dock = DockStyle.Fill };
+        foreach (var item in items)
+        {
+            var b = new Button { Text = item.icon + "\n" + item.label, Width = 105, Height = 67,
+                FlatStyle = FlatStyle.Flat, BackColor = Color.White, Margin = new Padding(4) };
+            b.FlatAppearance.BorderColor = Color.FromArgb(217, 222, 230);
+            b.Click += (_, _) => item.action();
+            flow.Controls.Add(b);
+        }
+        page.Controls.Add(flow); ribbon.TabPages.Add(page);
+    }
+    void Notice(string feature) => MessageBox.Show(this, feature + " 기능은 이 인터페이스 시제품에 아직 구현되지 않았습니다.", "개발 예정");
+    void Sketch() { view.Sketch = !view.Sketch; view.SetView(view.Sketch ? "top" : "iso"); status.Text = view.Sketch ? "평면 미리보기 · 스케치 편집은 개발 예정" : "3D 보기"; }
+    void Extrude() { model.Visible = true; view.Sketch = false; view.SetView("iso"); RefreshTree(); status.Text = "예제 직육면체 표시 · 왼쪽 치수로 크기 변경"; }
+    void UpdateDimensions()
+    {
+        if (loading) return;
+        model.Width = width.Value; model.Depth = depth.Value; model.Height = height.Value;
+        view.Invalidate(); status.Text = "예제 입체 치수 변경";
+    }
+    void RefreshTree()
+    {
+        tree.Nodes.Clear(); var root = tree.Nodes.Add("▣ 부품1");
+        root.Nodes.Add("재질 <지정되지 않음>"); root.Nodes.Add("정면 기준면");
+        root.Nodes.Add("평면 기준면"); root.Nodes.Add("우측 기준면"); root.Nodes.Add("원점");
+        if (model.Visible) root.Nodes.Add("예제 돌출 1");
+        root.Expand(); view.Invalidate();
+    }
+    void NewPart() { model = new Model { Visible = false }; Sync(); status.Text = "새 부품 · 예제 돌출을 눌러 입체 표시"; }
+    void Sync()
+    {
+        loading = true; width.Value = model.Width; depth.Value = model.Depth; height.Value = model.Height;
+        loading = false; view.Model = model; view.Sketch = false; RefreshTree(); view.Fit();
+    }
+    void Save()
+    {
+        using var dialog = new SaveFileDialog { Filter = "DMI CAD 프로젝트 (*.dmicad)|*.dmicad", FileName = "부품1.dmicad" };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        try { File.WriteAllText(dialog.FileName, JsonSerializer.Serialize(model)); status.Text = "저장됨"; }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "저장 실패"); }
+    }
+    void Open()
+    {
+        using var dialog = new OpenFileDialog { Filter = "DMI CAD 프로젝트 (*.dmicad)|*.dmicad" };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        try
+        {
+            if (new FileInfo(dialog.FileName).Length > 65536) throw new Exception("프로젝트 파일이 너무 큽니다.");
+            var m = JsonSerializer.Deserialize<Model>(File.ReadAllText(dialog.FileName)) ?? throw new Exception("잘못된 파일입니다.");
+            if (m.Width < 1 || m.Width > 10000 || m.Depth < 1 || m.Depth > 10000 || m.Height < 1 || m.Height > 10000)
+                throw new Exception("치수 범위는 1~10000 mm입니다.");
+            model = m; Sync(); status.Text = "불러오기 완료";
+        }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "열기 실패"); }
+    }
+}
+
+sealed class Viewport : Control
+{
+    public Model Model { get; set; } = new();
+    public bool Wire { get; set; }
+    public bool Sketch { get; set; }
+    double yaw = -.65, pitch = .5;
+    float zoom = 1;
+    Point previous;
+    bool dragging;
+    public Viewport()
+    {
+        Dock = DockStyle.Fill; DoubleBuffered = true; ResizeRedraw = true;
+        MouseDown += (_, e) => { if (e.Button != MouseButtons.Left) return; previous = e.Location; dragging = true; Capture = true; Focus(); };
+        MouseUp += (_, _) => { dragging = false; Capture = false; };
+        MouseCaptureChanged += (_, _) => { if (!Capture) dragging = false; };
+        MouseMove += (_, e) => { if (!dragging) return; yaw += (e.X - previous.X) * .01; pitch = Math.Clamp(pitch + (e.Y - previous.Y) * .01, -1.55, 1.55); previous = e.Location; Invalidate(); };
+        MouseWheel += (_, e) => { zoom = Math.Clamp(zoom * (e.Delta > 0 ? 1.12f : .89f), .15f, 8f); Invalidate(); };
+    }
+    public void Fit() { zoom = 1; Invalidate(); }
+    public void SetView(string name)
+    {
+        (yaw, pitch) = name switch { "front" => (0.0, 0.0), "top" => (0.0, 1.5707), _ => (-.65, .5) };
+        Invalidate();
+    }
+    (double x, double y, double z) Rotate(double x, double y, double z)
+    {
+        double a = x * Math.Cos(yaw) + y * Math.Sin(yaw);
+        double b = -x * Math.Sin(yaw) + y * Math.Cos(yaw);
+        return (a, b * Math.Sin(pitch) + z * Math.Cos(pitch), b * Math.Cos(pitch) - z * Math.Sin(pitch));
+    }
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e); var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias;
+        if (Width < 2 || Height < 2) return;
+        using var bg = new LinearGradientBrush(ClientRectangle, Color.FromArgb(222, 231, 242), Color.FromArgb(250, 251, 253), 90);
+        g.FillRectangle(bg, ClientRectangle);
+        using var grid = new Pen(Color.FromArgb(40, 110, 130, 155));
+        for (int x = Width / 2 % 30; x < Width; x += 30) g.DrawLine(grid, x, 0, x, Height);
+        for (int y = Height / 2 % 30; y < Height; y += 30) g.DrawLine(grid, 0, y, Width, y);
+        double w = (double)Model.Width, d = (double)Model.Depth, h = Sketch ? 0 : (double)Model.Height;
+        float scale = (float)(Math.Min(Width, Height) * .46 / Math.Max(w, Math.Max(d, Math.Max(h, 1)))) * zoom;
+        var points = new[] { (-w/2,-d/2,-h/2), (w/2,-d/2,-h/2), (w/2,d/2,-h/2), (-w/2,d/2,-h/2),
+            (-w/2,-d/2,h/2), (w/2,-d/2,h/2), (w/2,d/2,h/2), (-w/2,d/2,h/2) };
+        var rotated = points.Select(p => Rotate(p.Item1,p.Item2,p.Item3)).ToArray();
+        var projected = rotated.Select(p => new PointF(Width/2f + (float)p.x*scale, Height/2f - (float)p.y*scale)).ToArray();
+        int[][] faces = [[0,1,2,3],[4,7,6,5],[0,4,5,1],[1,5,6,2],[2,6,7,3],[3,7,4,0]];
+        Color[] colors = [Color.FromArgb(103,139,172),Color.FromArgb(184,208,228),Color.FromArgb(130,168,199),
+            Color.FromArgb(158,188,212),Color.FromArgb(113,152,184),Color.FromArgb(147,179,205)];
+        if (Model.Visible)
+        {
+            foreach (int i in Enumerable.Range(0,6).OrderByDescending(i => faces[i].Average(n => rotated[n].z)))
+            {
+                var poly = faces[i].Select(n => projected[n]).ToArray();
+                if (!Wire && !Sketch) { using var fill = new SolidBrush(colors[i]); g.FillPolygon(fill,poly); }
+                using var edge = new Pen(Color.FromArgb(49,77,103),1.4f); g.DrawPolygon(edge,poly);
+            }
+        }
+        using var text = new SolidBrush(Color.FromArgb(76,91,110));
+        g.DrawString(Sketch ? "평면 미리보기" : "부품1 · 3D 작업 화면", Font, text, 18,18);
+        g.DrawString("드래그: 회전   |   휠: 확대/축소", Font, text, 18, Height - 32);
+        float ox = Width - 76, oy = Height - 76;
+        var axes = new[] { (1.0,0.0,0.0,"X",Color.Firebrick),(0.0,1.0,0.0,"Y",Color.ForestGreen),(0.0,0.0,1.0,"Z",Color.RoyalBlue) };
+        foreach (var a in axes)
+        {
+            var p = Rotate(a.Item1,a.Item2,a.Item3);
+            float x = ox+(float)p.x*42, y = oy-(float)p.y*42;
+            using var pen = new Pen(a.Item5,2); g.DrawLine(pen,ox,oy,x,y);
+            using var brush = new SolidBrush(a.Item5); g.DrawString(a.Item4,Font,brush,x,y);
+        }
+    }
+}
