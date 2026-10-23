@@ -11,14 +11,41 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: x64
+      - name: Install CAD engine dependencies
+        run: python -m pip install "cadquery-ocp>=7.8,<7.9" "pyinstaller>=6.16,<7"
+      - name: Package Open CASCADE engine
+        run: python -m PyInstaller --noconfirm --onedir --name cad-engine --additional-hooks-dir engine --collect-all vtkmodules --distpath engine-dist --workpath engine-build engine/cad_engine.py
+      - name: Verify packaged STEP and IGES conversion
+        run: python engine/check_engine.py engine-dist/cad-engine/cad-engine.exe
       - name: Publish self-contained Windows app
         run: dotnet publish DmiCad.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+      - name: Include CAD engine and license notices
+        shell: pwsh
+        run: |
+          Copy-Item engine-dist/cad-engine publish/engine -Recurse
+          New-Item publish/engine/source -ItemType Directory -Force
+          Copy-Item engine/*.py publish/engine/source/
+          Copy-Item THIRD-PARTY.md publish/
+          python -m pip freeze | Out-File publish/engine/dependencies.txt -Encoding utf8
+          python engine/copy_licenses.py publish/engine/licenses
+      - name: Verify STL and DXF import
+        shell: pwsh
+        run: |
+          $app = Start-Process ./publish/DMI-CAD.exe -ArgumentList '--self-test import-errors.txt' -PassThru -Wait
+          if ($app.ExitCode -ne 0) {
+            if (Test-Path import-errors.txt) { Get-Content import-errors.txt }
+            throw "Geometry import checks failed."
+          }
       - name: Verify window opens
         shell: pwsh
         run: |
@@ -49,6 +76,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: DMI-CAD-Windows-x64
-          path: installer-output/DMI-CAD-Setup-0.1.0.exe
+          path: installer-output/DMI-CAD-Setup-0.2.0.exe
           if-no-files-found: error
           retention-days: 30
