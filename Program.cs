@@ -72,7 +72,7 @@ sealed class CadWindow : Form
         bottom.Items.Add(status);
         bottom.Items.Add(new ToolStripStatusLabel { Spring = true });
         bottom.Items.Add(new ToolStripStatusLabel("MMGS · mm   |   인터페이스 시제품"));
-        var split = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1,
+        var split = new SplitContainer { Size = new Size(1200, 600), Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1,
             SplitterDistance = 260, Panel1MinSize = 230, Panel2MinSize = 400, BackColor = Color.White };
         tree.Dock = DockStyle.Fill; tree.BorderStyle = BorderStyle.None;
         tree.HideSelection = false; tree.ItemHeight = 27;
