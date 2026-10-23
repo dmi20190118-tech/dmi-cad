@@ -52,7 +52,7 @@ sealed class CadWindow : Form
         menu.Items.Add(v);
         var help = new ToolStripMenuItem("도움말");
         help.Click += (_, _) => MessageBox.Show(this,
-            "DMI CAD 인터페이스 시제품\n\n왼쪽 마우스 드래그: 회전\n휠: 확대/축소\n치수 입력: 예제 직육면체 변경\n\n독립적인 시제품이며 SOLIDWORKS 제품이 아닙니다.\n선/곡면 편집 및 정밀 모델링은 아직 지원하지 않습니다.",
+            "DMI CAD 인터페이스 시제품\n\n가운데 버튼 드래그: 회전\nCtrl + 가운데 버튼: 화면 이동\nShift + 가운데 버튼: 확대/축소\n휠: 확대/축소 (아래로: 확대)\n가운데 버튼 더블클릭: 화면 맞춤\n치수 입력: 예제 직육면체 변경\n\n독립적인 시제품이며 SOLIDWORKS 제품이 아닙니다.\n선/곡면 편집 및 정밀 모델링은 아직 지원하지 않습니다.",
             "DMI CAD");
         menu.Items.Add(help);
         MainMenuStrip = menu;
@@ -178,18 +178,36 @@ sealed class Viewport : Control
     public bool Sketch { get; set; }
     double yaw = -.65, pitch = .5;
     float zoom = 1;
+    PointF pan;
     Point previous;
     bool dragging;
     public Viewport()
     {
         Dock = DockStyle.Fill; DoubleBuffered = true; ResizeRedraw = true;
-        MouseDown += (_, e) => { if (e.Button != MouseButtons.Left) return; previous = e.Location; dragging = true; Capture = true; Focus(); };
-        MouseUp += (_, _) => { dragging = false; Capture = false; };
+        MouseDown += (_, e) => { if (e.Button != MouseButtons.Middle) return; previous = e.Location; dragging = true; Capture = true; Focus(); };
+        MouseUp += (_, e) => { if (e.Button != MouseButtons.Middle) return; dragging = false; Capture = false; };
         MouseCaptureChanged += (_, _) => { if (!Capture) dragging = false; };
-        MouseMove += (_, e) => { if (!dragging) return; yaw += (e.X - previous.X) * .01; pitch = Math.Clamp(pitch + (e.Y - previous.Y) * .01, -1.55, 1.55); previous = e.Location; Invalidate(); };
-        MouseWheel += (_, e) => { zoom = Math.Clamp(zoom * (e.Delta > 0 ? 1.12f : .89f), .15f, 8f); Invalidate(); };
+        MouseMove += (_, e) =>
+        {
+            if (!dragging) return;
+            int dx = e.X - previous.X, dy = e.Y - previous.Y;
+            if ((ModifierKeys & Keys.Control) != 0)
+                pan = new PointF(pan.X + dx, pan.Y + dy);
+            else if ((ModifierKeys & Keys.Shift) != 0)
+                zoom = Math.Clamp(zoom * (float)Math.Exp(-dy * .01), .15f, 8f);
+            else
+            {
+                yaw += dx * .01;
+                pitch = Math.Clamp(pitch + dy * .01, -1.55, 1.55);
+            }
+            previous = e.Location;
+            Invalidate();
+        };
+        // SOLIDWORKS default wheel direction: toward user zooms in.
+        MouseWheel += (_, e) => { zoom = Math.Clamp(zoom * (float)Math.Pow(1.12, -e.Delta / 120.0), .15f, 8f); Invalidate(); };
+        MouseDoubleClick += (_, e) => { if (e.Button == MouseButtons.Middle) Fit(); };
     }
-    public void Fit() { zoom = 1; Invalidate(); }
+    public void Fit() { zoom = 1; pan = PointF.Empty; Invalidate(); }
     public void SetView(string name)
     {
         (yaw, pitch) = name switch { "front" => (0.0, 0.0), "top" => (0.0, 1.5707), _ => (-.65, .5) };
@@ -215,7 +233,7 @@ sealed class Viewport : Control
         var points = new[] { (-w/2,-d/2,-h/2), (w/2,-d/2,-h/2), (w/2,d/2,-h/2), (-w/2,d/2,-h/2),
             (-w/2,-d/2,h/2), (w/2,-d/2,h/2), (w/2,d/2,h/2), (-w/2,d/2,h/2) };
         var rotated = points.Select(p => Rotate(p.Item1,p.Item2,p.Item3)).ToArray();
-        var projected = rotated.Select(p => new PointF(Width/2f + (float)p.x*scale, Height/2f - (float)p.y*scale)).ToArray();
+        var projected = rotated.Select(p => new PointF(Width/2f + pan.X + (float)p.x*scale, Height/2f + pan.Y - (float)p.y*scale)).ToArray();
         int[][] faces = [[0,1,2,3],[4,7,6,5],[0,4,5,1],[1,5,6,2],[2,6,7,3],[3,7,4,0]];
         Color[] colors = [Color.FromArgb(103,139,172),Color.FromArgb(184,208,228),Color.FromArgb(130,168,199),
             Color.FromArgb(158,188,212),Color.FromArgb(113,152,184),Color.FromArgb(147,179,205)];
@@ -230,7 +248,7 @@ sealed class Viewport : Control
         }
         using var text = new SolidBrush(Color.FromArgb(76,91,110));
         g.DrawString(Sketch ? "평면 미리보기" : "부품1 · 3D 작업 화면", Font, text, 18,18);
-        g.DrawString("드래그: 회전   |   휠: 확대/축소", Font, text, 18, Height - 32);
+        g.DrawString("가운데: 회전  |  Ctrl+가운데: 이동  |  휠: 확대/축소", Font, text, 18, Height - 32);
         float ox = Width - 76, oy = Height - 76;
         var axes = new[] { (1.0,0.0,0.0,"X",Color.Firebrick),(0.0,1.0,0.0,"Y",Color.ForestGreen),(0.0,0.0,1.0,"Z",Color.RoyalBlue) };
         foreach (var a in axes)
