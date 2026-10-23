@@ -1,0 +1,51 @@
+name: Build Windows installer
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Publish self-contained Windows app
+        run: dotnet publish DmiCad.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+      - name: Verify window opens
+        shell: pwsh
+        run: |
+          $app = Start-Process ./publish/DMI-CAD.exe -PassThru
+          try {
+            $opened = $false
+            for ($i = 0; $i -lt 30; $i++) {
+              Start-Sleep -Seconds 1
+              $app.Refresh()
+              if ($app.HasExited) { throw "Application exited during startup." }
+              if ($app.MainWindowHandle -ne 0) { $opened = $true; break }
+            }
+            if (-not $opened) { throw "Application did not open a main window." }
+            Write-Host "Main window opened successfully."
+          } finally {
+            if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force }
+          }
+      - name: Build setup executable
+        shell: pwsh
+        run: |
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $compiler)) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed." }
+          }
+          & $compiler installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed." }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DMI-CAD-Windows-x64
+          path: installer-output/DMI-CAD-Setup-0.1.0.exe
+          if-no-files-found: error
+          retention-days: 30
