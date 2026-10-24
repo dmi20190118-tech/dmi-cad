@@ -86,3 +86,15 @@ Architectural priorities:
 - Reserve workspace organization when justified, but make unavailable capabilities explicit and do not build misleading nonfunctional controls as completed features.
 
 Delivery progression: exact CAD foundation → drafting and assembly foundations → mold workflows → validated CAM/NC generation/verification → specialist simulation extensions, adjusting bounded work to user priorities and dependencies.
+
+## Machining instruction sheets (2026-10-24)
+
+The user requires operator-facing machining/NC setup sheets automatically populated from CAM/NC work using their existing Excel template. They will supply the template, cutting/machining-condition data and dimensions later.
+
+Preserve the future Excel layout and print settings when the actual template is supplied. Define explicit cell mappings, units, source references and condition-table versions; never invent template cells or acceptable process limits.
+
+Populate sheets from the same authoritative operation/tool/setup data used to generate NC, then compare relevant fields against exported NC modal state. Show missing data, mismatches and out-of-range conditions. Numeric syntax or a user-entered maximum does not establish safe machining. Reference limits must match material, cutter, holder, machine and operation context.
+
+Track drawing/NC revisions, work coordinates, tool offsets, units, rotation/feed modes, dimensions/tolerances and approval state. Changed NC/model/conditions must mark sheets stale and require revalidation. Intended future outputs include the user's actual Excel sheet and printed/PDF operator instructions.
+
+Current initial prototype is a manually populated single-operation instruction draft with required/numeric checks, optional reference maximum checks, Vc/fz consistency checks and printable HTML. It is NOT NC parsing, automatic synchronization, dimensional NC verification, Excel template integration or a machining-safety approval system. Clearly state these limits. Do not use a green all-safe status when evidence is missing.
