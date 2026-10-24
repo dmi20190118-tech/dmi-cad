@@ -98,3 +98,25 @@ Populate sheets from the same authoritative operation/tool/setup data used to ge
 Track drawing/NC revisions, work coordinates, tool offsets, units, rotation/feed modes, dimensions/tolerances and approval state. Changed NC/model/conditions must mark sheets stale and require revalidation. Intended future outputs include the user's actual Excel sheet and printed/PDF operator instructions.
 
 Current initial prototype is a manually populated single-operation instruction draft with required/numeric checks, optional reference maximum checks, Vc/fz consistency checks and printable HTML. It is NOT NC parsing, automatic synchronization, dimensional NC verification, Excel template integration or a machining-safety approval system. Clearly state these limits. Do not use a green all-safe status when evidence is missing.
+
+## User clarification: prioritize real CAD modeling (2026-10-24)
+
+The user rejected treating the mobile machining-sheet demo or a file viewer as the requested CAD. Prioritize directly drawing sketches, dimensional/geometric constraints, genuine solid extrusion/cuts, face/edge/vertex selection, feature edits, undo/redo and project persistence. A parametric display cuboid is not completion of this goal. Keep manufacturing/documentation work connected to this core rather than allowing peripheral previews to replace it.
+
+## Help and training are product deliverables (2026-10-24)
+
+The user wants other users to understand purpose and operation from documentation and videos without repeated personal explanations. Treat this as a continuing requirement for every feature.
+
+Entry point: docs/README.md.
+Current authored deliverables:
+- docs/USER-GUIDE.ko.md: beginner handbook of actual current features and troubleshooting.
+- docs/PRODUCT-AND-TRAINING.ko.md: product purpose, extensibility and detailed help/training standard.
+- docs/VIDEO-PLAN.ko.md: tutorial structure/scripts, not finished videos.
+
+For each feature, document purpose, use case, prerequisites, exact UI entry, step-by-step actions, units/options, expected result, mistakes/recovery, scope/limits, version/build and example files. Explain unfamiliar terminology at first use and provide a glossary. Error messages should identify what is wrong, why and how to fix it.
+
+Update help alongside code and use real screenshots/recordings of the shipped behavior. Provide task-based short videos with Korean captions, cursor/key indicators, examples and clear expected outcomes. Distinguish planned tutorials from completed video artifacts. Do not film unreleased/nonfunctional tools as working demonstrations.
+
+Product help/F1 links, PDF handbook and actual tutorial videos are not yet implemented merely because Markdown and video plans exist. Keep their status accurate. Before presenting a workflow as ready for independent users, have a novice follow it and record/correct points requiring extra explanation. Do not promise universal first-pass comprehension without such testing.
+
+Follow the same purpose → interaction → implementation/verification process for documentation and instructional media. Preserve the development purpose and extension roadmap separately from current user instructions.
