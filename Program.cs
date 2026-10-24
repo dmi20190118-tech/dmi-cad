@@ -66,6 +66,13 @@ sealed class CadWindow : Form
             "DMI CAD 인터페이스 시제품\n\n가운데 버튼 드래그: 회전\nCtrl + 가운데 버튼: 화면 이동\nShift + 가운데 버튼: 확대/축소\n휠: 확대/축소 (아래로: 확대)\n가운데 버튼 더블클릭: 화면 맞춤\n치수 입력: 예제 직육면체 변경\n\n독립적인 시제품이며 SOLIDWORKS 제품이 아닙니다.\n선/곡면 편집 및 정밀 모델링은 아직 지원하지 않습니다.",
             "DMI CAD");
         menu.Items.Add(help);
+        var brandImage = Brand.CreateLogo();
+        var brandBox = new PictureBox { Image = brandImage, SizeMode = PictureBoxSizeMode.Zoom,
+            BackColor = Color.White, Width = 104, Height = 52 };
+        brandBox.Disposed += (_, _) => brandImage.Dispose();
+        var brandHost = new ToolStripControlHost(brandBox) { AutoSize = false, Width = 110, Height = 56 };
+        menu.AutoSize = false; menu.Height = 62;
+        menu.Items.Insert(0, brandHost);
         MainMenuStrip = menu;
         ribbon.Dock = DockStyle.Top; ribbon.Height = 118;
         AddRibbon("피처", ("▱", "예제 돌출", Extrude), ("↻", "회전", () => Notice("회전 피처")),
