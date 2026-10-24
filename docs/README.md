@@ -1,3 +1,5 @@
+![DMI — Design · Mold · Injection](https://static.wixstatic.com/media/b61e9b_4c68109deaca422494f28c350edb38de~mv2.png)
+
 # DMI CAD 도움말과 교육 자료
 
 처음 사용하는 분은 **[사용자 안내서](USER-GUIDE.ko.md)**부터 읽으세요.
