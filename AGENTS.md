@@ -45,3 +45,20 @@ Near-term priorities:
 ## How to handle new requests
 
 Interpret even short feature requests in the context of this agreement. Do not make the user repeat the 1–2–3 process. Briefly explain the purpose/interaction decisions when useful, then proceed within the authorized scope. Ask approval only for actions that actually require it, including paid SDK commitments or genuinely destructive operations.
+
+## Joint NC development objective (2026-10-24)
+
+The user explicitly wants NCBrain-like NC verification and machining-time optimization developed alongside CAD. Treat this as a continuing product objective, not an unrelated future idea. Apply the same purpose → interaction → implementation/verification workflow.
+
+NCBrain is a research/comparison reference, not a source of copied implementation or assets. Research public documentation when defining specific features and cite sources; distinguish documented product behavior from hypotheses and implemented functionality. Do not claim that research has occurred unless it actually has.
+
+Stage the work:
+1. Obtain representative NC programs and identify target controller dialect, machine axes/kinematics, tool/holder geometry, stock/part/fixture models, work offsets and units.
+2. Parse supported NC commands and simulate modal state and tool motion. Report unsupported commands, macros and cycles explicitly; never silently approximate them as safe moves.
+3. Estimate machining time with explicit machine limits and acceleration assumptions. Distinguish estimates from actual measured cycle times.
+4. Track stock removal and identify air motion with the changing remaining stock. Tool travel outside the finished part alone does not prove air cutting.
+5. Check cutter/holder/stock/part/fixture interference using coordinate-consistent geometry. Intentional cutter-stock contact is cutting, not automatically a collision. Machine-component collisions additionally require machine geometry and kinematics.
+6. Introduce reviewed air-motion/feed optimization only after simulation and validation support it. Faster rapid travel through nominally empty space is not inherently safe. Respect entry/exit motion, controller limits, tool/material/load constraints, and tolerances.
+7. Preserve original NC files. Show proposed changes and compare before/after geometry, time estimates, assumptions and remaining uncertainties before exporting a separate optimized file. Never send generated NC directly to a machine.
+
+Initial scope should be one controller and a 3-axis machine unless the user's actual equipment supports a different bounded choice. Do not claim production-grade collision avoidance or a guaranteed time reduction from a prototype. Actual machining release needs appropriate independent verification and machine procedures.
