@@ -85,7 +85,7 @@ static class SheetRules
                 .Append(E(d.Get(field.Key)).Replace("\n","<br>")).Append("</td></tr>");
         return "<!doctype html><html lang='ko'><meta charset='utf-8'><title>가공 지시서 초안</title>" +
             "<style>body{font:14px sans-serif;color:#172438;max-width:900px;margin:28px auto;padding:12px}h1{font-size:25px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #8a96a5;padding:7px;text-align:left;overflow-wrap:anywhere}th{width:32%;background:#eef2f7}p,li{line-height:1.5}.draft{border:2px solid #b77a12;padding:10px}@page{size:A4;margin:12mm}@media print{button{display:none}body{margin:0;padding:0;font-size:11px}tr{break-inside:avoid}th{-webkit-print-color-adjust:exact}}</style>" +
-            "<button onclick='window.print()'>인쇄 / PDF 저장</button><h1>가공 지시서 — 검토용 초안</h1>" +
+            " <button onclick='window.print()'>인쇄 / PDF 저장</button>" + Brand.HtmlLogo + "<h1>가공 지시서 — 검토용 초안</h1>" +
             "<p>작성: "+E(DateTime.Now.ToString("yyyy-MM-dd HH:mm"))+"</p><table>"+body+"</table><p>"+E(result.Calculated)+"</p>"+
             "<div class='draft'><strong>입력 형식·참조 최대값 검사 통과 / 현장 사용 전 확인 필요</strong><ul>"+
             string.Join("",result.Review.Select(t=>"<li>"+E(t)+"</li>"))+
