@@ -1,3 +1,5 @@
+![DMI — Design · Mold · Injection](https://static.wixstatic.com/media/b61e9b_4c68109deaca422494f28c350edb38de~mv2.png)
+
 # DMI CAD 사용자 안내서
 
 문서 기준: 2026-10-24 / Windows 0.2 계열 시제품 및 모바일 체험판  
