@@ -10,7 +10,7 @@ static class Program
     {
         if (args.Length > 0 && args[0] == "--self-test")
         {
-            try { ImportChecks.Run(); Environment.ExitCode = 0; }
+            try { ImportChecks.Run(); SheetChecks.Run(); Environment.ExitCode = 0; }
             catch (Exception ex) { if (args.Length > 1) File.WriteAllText(args[1],ex.ToString()); Environment.ExitCode = 1; }
             return;
         }
@@ -58,6 +58,9 @@ sealed class CadWindow : Form
         v.DropDownItems.Add("정면 보기", null, (_, _) => view.SetView("front"));
         v.DropDownItems.Add("평면 보기", null, (_, _) => view.SetView("top"));
         menu.Items.Add(v);
+        var sheetMenu = new ToolStripMenuItem("가공 지시서");
+        sheetMenu.Click += (_, _) => new MachiningSheetWindow().Show(this);
+        menu.Items.Add(sheetMenu);
         var help = new ToolStripMenuItem("도움말");
         help.Click += (_, _) => MessageBox.Show(this,
             "DMI CAD 인터페이스 시제품\n\n가운데 버튼 드래그: 회전\nCtrl + 가운데 버튼: 화면 이동\nShift + 가운데 버튼: 확대/축소\n휠: 확대/축소 (아래로: 확대)\n가운데 버튼 더블클릭: 화면 맞춤\n치수 입력: 예제 직육면체 변경\n\n독립적인 시제품이며 SOLIDWORKS 제품이 아닙니다.\n선/곡면 편집 및 정밀 모델링은 아직 지원하지 않습니다.",
