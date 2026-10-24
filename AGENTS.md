@@ -62,3 +62,27 @@ Stage the work:
 7. Preserve original NC files. Show proposed changes and compare before/after geometry, time estimates, assumptions and remaining uncertainties before exporting a separate optimized file. Never send generated NC directly to a machine.
 
 Initial scope should be one controller and a 3-axis machine unless the user's actual equipment supports a different bounded choice. Do not claim production-grade collision avoidance or a guaranteed time reduction from a prototype. Actual machining release needs appropriate independent verification and machine procedures.
+
+## Integrated engineering platform direction (2026-10-24)
+
+The user clarified that the product is one extensible engineering application with separate workspaces, sharing model data:
+- Part CAD: accurate solid/surface modeling, sketches, constraints and feature editing.
+- Drafting: associative drawing views/sections/details, dimensions/tolerances and drawing output.
+- Assembly: multiple components, instances, placement, mating constraints and interference checks.
+- Mold design: opening/draw direction, draft/undercut analysis, parting lines/surfaces, core/cavity separation, slider/lifter design and placement, with later mold-base/ejection/cooling support.
+- CAM/NC: tool/holder library, setups/stock/fixtures, machining operations, toolpaths, controller/machine-specific postprocessing and NC output, then NC verification/optimization described above.
+- Simulation/extensions: allow later validated structural, motion, thermal or mold-flow capabilities through explicit modules. Each domain requires its own solver, inputs, licenses and validation.
+
+CAD foundation is the first delivery priority. A workspace tab does not establish that its functionality exists. Do not label this roadmap as an already complete professional CAD or a guarantee of full SOLIDWORKS equivalence. Implement a bounded validated subset and expand.
+
+Architectural priorities:
+- One document/project model for geometry, units, coordinate frames, stable identifiers, feature history, component instances and file versions.
+- Shared navigation/selection, commands, undo/redo, persistence and geometry services.
+- Versioned interfaces for modules and explicit capability availability; avoid prebuilding speculative solver frameworks.
+- Drafting/assembly/mold/CAM should reference shared source geometry rather than unrelated duplicated meshes.
+- Imported tessellated viewer geometry is not an editable precise boundary representation. Preserve or implement access to exact geometry before supporting precision modeling and associative drawings.
+- Define change propagation and stale-result invalidation: when source geometry changes, mark dependent drawings, mold features, toolpaths and simulation results for regeneration/revalidation.
+- Core/cavity separation requires actual parting geometry and valid solid operations; slider placement requires undercut/access/motion checks. Do not present generic boolean cuts as a complete mold-design solution.
+- Reserve workspace organization when justified, but make unavailable capabilities explicit and do not build misleading nonfunctional controls as completed features.
+
+Delivery progression: exact CAD foundation → drafting and assembly foundations → mold workflows → validated CAM/NC generation/verification → specialist simulation extensions, adjusting bounded work to user priorities and dependencies.
