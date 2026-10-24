@@ -1,0 +1,72 @@
+name: Capture Windows preview
+on:
+  push:
+    paths: ['.github/workflows/preview.yml']
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  preview:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: DMI-CAD-Windows-x64
+          run-id: 39940254766
+          github-token: ${{ github.token }}
+          path: installer
+      - name: Install and capture actual window
+        shell: pwsh
+        run: |
+          $destination = Join-Path $env:RUNNER_TEMP 'DmiCadPreview'
+          $setup = Start-Process installer/DMI-CAD-Setup-0.2.0.exe -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=$destination") -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "Installation failed." }
+          Add-Type -AssemblyName System.Drawing
+          Add-Type @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class WindowCapture {
+            [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
+            [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT rect);
+            [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
+            [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int height, bool repaint);
+          }
+          '@
+          $app = Start-Process "$destination/DMI-CAD.exe" -PassThru
+          try {
+            for ($i=0; $i -lt 30; $i++) {
+              Start-Sleep -Seconds 1
+              $app.Refresh()
+              if ($app.HasExited) { throw "Program exited." }
+              if ($app.MainWindowHandle -ne 0) { break }
+            }
+            if ($app.MainWindowHandle -eq 0) { throw "No window." }
+            [WindowCapture]::MoveWindow($app.MainWindowHandle,0,0,1280,800,$true) | Out-Null
+            Start-Sleep -Seconds 2
+            $rect = New-Object WindowCapture+RECT
+            [WindowCapture]::GetWindowRect($app.MainWindowHandle,[ref]$rect) | Out-Null
+            $bitmap = New-Object System.Drawing.Bitmap ($rect.Right-$rect.Left),($rect.Bottom-$rect.Top)
+            $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+            $dc = $graphics.GetHdc()
+            try { if (-not [WindowCapture]::PrintWindow($app.MainWindowHandle,$dc,2)) { throw "Capture failed." } }
+            finally { $graphics.ReleaseHdc($dc) }
+            New-Item preview -ItemType Directory -Force
+            $bitmap.Save((Join-Path $pwd 'preview/windows.png'),[System.Drawing.Imaging.ImageFormat]::Png)
+            $graphics.Dispose()
+            $bitmap.Dispose()
+          } finally { if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force } }
+      - name: Save preview
+        shell: pwsh
+        run: |
+          git config user.name "DMI CAD Preview"
+          git config user.email "preview@users.noreply.github.com"
+          git add preview/windows.png
+          git commit -m "Capture installed DMI CAD 0.2 Windows interface [skip ci]"
+          git push
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Windows-preview
+          path: preview/windows.png
