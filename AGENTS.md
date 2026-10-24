@@ -120,3 +120,13 @@ Update help alongside code and use real screenshots/recordings of the shipped be
 Product help/F1 links, PDF handbook and actual tutorial videos are not yet implemented merely because Markdown and video plans exist. Keep their status accurate. Before presenting a workflow as ready for independent users, have a novice follow it and record/correct points requiring extra explanation. Do not promise universal first-pass comprehension without such testing.
 
 Follow the same purpose → interaction → implementation/verification process for documentation and instructional media. Preserve the development purpose and extension roadmap separately from current user instructions.
+
+## Existing company branding (2026-10-24)
+
+Use the user's existing original DMI logo. The user said TMI in speech, but the located original is DMI로고.png and the explained initials are Design, Mold, Injection. Do not invent a new TMI logo or silently substitute unrelated branding. If the user later supplies a different mark, clarify and use the designated original.
+
+Asset source: https://drive.google.com/file/d/1oo4KLBoZrp6ecmCcKki18gxx8SVH5LFM/view
+Original image: https://static.wixstatic.com/media/b61e9b_4c68109deaca422494f28c350edb38de~mv2.png
+Desktop embedded original bytes: Brand.cs.
+
+The mark contains orange D (Design), green M (Mold), blue I (Injection). Preserve original pixels, aspect ratio, labels and colors; do not redraw, crop, stretch or recolor it. Place on a contrasting, preferably white, background so labels remain legible. Use across application headers, help, instruction sheets and educational materials. Apply the identity without replacing functional engineering UI with decorative branding.
