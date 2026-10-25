@@ -254,6 +254,8 @@ sealed partial class ModelingWindow
         await Undo(false);
         treeFilter.Text="관통";
         if(tree.Nodes[0].Nodes.Cast<TreeNode>().Count(n=>n.Tag is int)!=1)throw new Exception("Feature filter failed.");
-        treeFilter.Text="";managerTabs.SelectedIndex=0;tabs.SelectedIndex=1;return true;
+        treeFilter.Text="";tree.SelectedNode=tree.Nodes[0];
+        if(selected!=-1)throw new Exception("Root selection retained a stale feature target.");
+        managerTabs.SelectedIndex=0;tabs.SelectedIndex=1;return true;
     }
 }

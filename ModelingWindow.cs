@@ -35,7 +35,19 @@ sealed partial class ModelingWindow : Form
         sketch.Changed+=(_,_)=>ShowSketchDimensions();
         grid.ValueChanged+=(_,_)=>sketch.Grid=(double)grid.Value;
         vertex.ValueChanged+=(_,_)=>{if(sync||sketch.Sketch.Kind=="circle"||!sketch.Closed)return;int i=(int)vertex.Value-1;if(i<sketch.Sketch.Points.Count){u.Value=(decimal)sketch.Sketch.Points[i][0];v.Value=(decimal)sketch.Sketch.Points[i][1];}};
-        tree.AfterSelect+=(_,e)=>{if(e.Node?.Tag is int i)SelectFeature(i);};
+        tree.AfterSelect+=(_,e)=>
+        {
+            if(e.Node?.Tag is int i)SelectFeature(i);
+            else
+            {
+                selected=-1;
+                if(e.Node?.Tag is string planeTag&&planeTag.StartsWith("plane:"))
+                {
+                    plane.SelectedIndex=planeTag=="plane:XY"?0:planeTag=="plane:XZ"?1:2;
+                    status.Text="기준면 선택됨. 스케치 탭에서 도형을 시작하세요.";
+                }
+            }
+        };
         KeyDown+=async(_,e)=>{if(e.Control&&e.KeyCode==Keys.Z){e.SuppressKeyPress=true;await Undo(false);}else if(e.Control&&e.KeyCode==Keys.Y){e.SuppressKeyPress=true;await Undo(true);}else if(e.Control&&e.KeyCode==Keys.S){e.SuppressKeyPress=true;SaveProject();}else if(e.KeyCode==Keys.Escape){e.SuppressKeyPress=true;CancelProperty();}else if(e.KeyCode==Keys.F1){e.SuppressKeyPress=true;Help();}};
         FormClosing+=(_,e)=>{if(rebuilding){e.Cancel=true;return;}if(dirty&&MessageBox.Show(this,"저장하지 않은 모델 변경을 닫을까요?","변경 확인",MessageBoxButtons.YesNo,MessageBoxIcon.Question)!=DialogResult.Yes)e.Cancel=true;};
         FormClosed+=(_,_)=>{tips.Dispose();try{Directory.Delete(temp,true);}catch{}};
@@ -99,7 +111,7 @@ sealed partial class ModelingWindow : Form
         tree.Nodes.Clear();var root=tree.Nodes.Add(document.Name+" · rev "+document.Revision);
         root.Nodes.Add("주석 / 단위: mm");root.Nodes.Add("재질 <지정되지 않음>");
         var planes=root.Nodes.Add("기준면");
-        planes.Nodes.Add("XY 기준면");planes.Nodes.Add("XZ 기준면");planes.Nodes.Add("YZ 기준면");
+        planes.Nodes.Add("XY 기준면").Tag="plane:XY";planes.Nodes.Add("XZ 기준면").Tag="plane:XZ";planes.Nodes.Add("YZ 기준면").Tag="plane:YZ";
         root.Nodes.Add("원점");
         string filter=treeFilter.Text.Trim();
         for(int i=0;i<document.Features.Count;i++)
@@ -107,7 +119,7 @@ sealed partial class ModelingWindow : Form
             var f=document.Features[i];
             if(filter.Length>0&&!f.Name.Contains(filter,StringComparison.OrdinalIgnoreCase))continue;
             var node=root.Nodes.Add($"{i+1}. {f.Name} [{f.Plane} / {f.Depth:G6} mm]");node.Tag=i;
-            node.Nodes.Add(f.Sketch.Kind=="circle"?"스케치 · 원":"스케치 · 닫힌 다각형");
+            node.Nodes.Add(f.Sketch.Kind=="circle"?"스케치 · 원":"스케치 · 닫힌 다각형").Tag=i;
         }
         root.Expand();selected=-1;Text=$"디엠아이(DMI) CAD 0.3.1 — {document.Name}"+(dirty?" *":"");
     }
