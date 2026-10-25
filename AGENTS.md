@@ -140,3 +140,13 @@ Implemented bounded scope: principal XY/XZ/YZ planes, offsets/depths, circles an
 This is not a general sketch constraint solver, face-attached sketching, topology selection/measurement, fillet/surface suite, drafting, assembly, mold design, CAM/NC, or automatic sheet synchronization. Keep those absent capabilities explicit.
 
 See docs/MODELING-0.3.ko.md and examples/plate.dmipart. CI checks analytic volumes, edited volume, STEP reread, principal planes, invalid/self-intersecting/disconnected/no-effect features, document snapshots, and actual GUI generation of a three-feature part. preview/modeler-0.3.png is captured from that GUI when CI succeeds. Do not describe those checks as manual mouse testing or production machining validation.
+
+## 0.3.1 interface direction and staged interaction (2026-10-25)
+
+The user explicitly requested SOLIDWORKS 2020 default interface as a reference and instructed us to verify and proceed without requiring user screenshots. Official 2020 docs were researched for CommandManager, Manager Pane, PropertyManager, Heads-up View and default Workspace.
+
+ModelingWindow is now partial. ModelingShell.cs owns the native menu, quick tools, command tabs below icon groups, manager tabs, staged property confirmation/cancel, context editing and view toolbar. Own DMI logo and own drawn icons remain. Existing exact geometry engine and principal-plane coordinates remain unchanged.
+
+Do not revert to a flat wall of large buttons or permanently expose all property fields beside the tree. Do not describe unavailable fillet/drafting/assembly/mold/CAM as working. Do not claim pixel-identical UI or full SOLIDWORKS behavior.
+
+CI additionally exercises sketch completion, property pane activation, feature confirmation, cancellation preserving committed model, undo/redo and feature filtering in the real Windows GUI. It captures model and property screens. This is not exhaustive manual mouse/accessibility/DPI testing or a side-by-side audit of a running SOLIDWORKS installation. Documentation: docs/INTERFACE-0.3.1.ko.md.

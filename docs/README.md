@@ -1,3 +1,5 @@
+**현재 인터페이스:** [0.3.1 화면과 작업 순서](INTERFACE-0.3.1.ko.md)
+
 ![DMI — Design · Mold · Injection](https://static.wixstatic.com/media/b61e9b_4c68109deaca422494f28c350edb38de~mv2.png)
 
 # DMI CAD 도움말과 교육 자료

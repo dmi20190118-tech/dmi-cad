@@ -1,10 +1,13 @@
-# 디엠아이(DMI) CAD 0.3
+# 디엠아이(DMI) CAD 0.3.1
 
 ![DMI](https://static.wixstatic.com/media/b61e9b_4c68109deaca422494f28c350edb38de~mv2.png)
 
 Windows용 정밀 스케치·솔리드 모델링 개발 버전입니다. Design · Mold · Injection의 통합 설계·제조 환경으로 확장하는 초기 단계입니다.
 
-## 0.3의 핵심 작업
+## 0.3.1 인터페이스
+SOLIDWORKS 2020 공식 도움말의 기본 배치를 참고해 상단 작업별 명령 탭, 왼쪽 피처 트리/속성 전환과 확인/취소, 모델 위 보기 도구를 구성했습니다. 자체 DMI 로고·아이콘을 사용합니다. [새 사용 순서와 검사 범위](docs/INTERFACE-0.3.1.ko.md)
+
+## 0.3 모델링의 핵심 작업
 - 사각형·원·닫힌 다각형을 화면에서 그리거나 숫자 치수로 정의
 - XY/XZ/YZ 평면과 오프셋·깊이로 정확한 솔리드 돌출
 - 재료 추가와 잘라내기, 유효한 단일 솔리드와 실제 부피 변화 검사
@@ -27,7 +30,7 @@ PFM·Cimatron·CATIA·SOLIDWORKS·DWG 원본 읽기도 미지원입니다.
 
 ## Windows 설치 파일
 [Actions](https://github.com/dmi20190118-tech/dmi-cad/actions)의 성공한 0.3 빌드에서 Artifacts → DMI-CAD-Windows-x64를 받으세요.
-ZIP을 풀고 DMI-CAD-Setup-0.3.0.exe를 실행합니다. Windows 10/11 x64, .NET과 CAD 엔진 포함.
+ZIP을 풀고 DMI-CAD-Setup-0.3.1.exe를 실행합니다. Windows 10/11 x64, .NET과 CAD 엔진 포함.
 코드 서명이 없는 초기 제품이며 실제 고객 모델·현장 작업에는 추가 검증이 필요합니다.
 
 ## 검증

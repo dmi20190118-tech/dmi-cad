@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 namespace DmiCad;
 
-sealed class ModelingWindow : Form
+sealed partial class ModelingWindow : Form
 {
     readonly SketchEditor sketch=new();
     readonly Viewport viewport=new(){Model=new Model{Visible=false}};
@@ -28,79 +28,18 @@ sealed class ModelingWindow : Form
     public ModelingWindow()
     {
         Directory.CreateDirectory(temp);
-        Text="디엠아이(DMI) CAD 0.3 — 정밀 스케치 / 솔리드";
+        Text="디엠아이(DMI) CAD 0.3.1 — 정밀 스케치 / 솔리드";
         Width=1500;Height=960;MinimumSize=new Size(1120,760);Font=new Font("Segoe UI",9);
         KeyPreview=true;
-        var bar=new FlowLayoutPanel {Dock=DockStyle.Top,Height=106,Padding=new Padding(4),WrapContents=true,BackColor=Color.FromArgb(232,238,243)};
-        var logo=Brand.CreateLogo();
-        var picture=new PictureBox{Image=logo,SizeMode=PictureBoxSizeMode.Zoom,Width=106,Height=44,BackColor=Color.White};
-        picture.Disposed+=(_,_)=>logo.Dispose();bar.Controls.Add(picture);
-        void B(string text,Action action,string tip)
-        {
-            var button=new Button {Text=text,Height=42,AutoSize=true,MinimumSize=new Size(82,42),Margin=new Padding(3),FlatStyle=FlatStyle.Flat};
-            button.Click+=(_,_)=>action();bar.Controls.Add(button);
-            tips.SetToolTip(button,tip);
-        }
-        B("새 프로젝트",NewProject,"새로운 mm 단위 피처 프로젝트. 기존 변경은 먼저 저장하세요.");
-        B("열기",OpenProject,".dmipart 프로젝트를 다시 계산해 엽니다. STEP 등은 파일 뷰어에서 엽니다.");
-        B("저장",SaveProject,"스케치 좌표와 피처 이력을 저장합니다. 임시 스케치는 피처에 추가한 뒤 저장하세요.");
-        B("내보내기",Export,"현재 정확한 솔리드를 STEP / IGES / STL로 출력합니다.");
-        B("파일 뷰어",()=>new CadWindow().Show(this),"기존 STEP / IGES / STL / DXF 확인·변환 창을 엽니다.");
-        B("가공 지시서",Sheet,"현재 모델 이름·리비전·외형 크기를 지시서 초안에 전달합니다.");
-        B("도움말",Help,"작업 순서, 좌표계와 기능 제한을 설명합니다.");
-        B("예제 만들기",async()=>await LoadDemo(),"스케치 돌출 → 원 구멍 → 추가 돌출을 실제 엔진으로 계산합니다.");
-        B("사각형",()=>Begin("rectangle"),"2D 화면에서 대각 두 점을 찍거나 U/V/너비/높이를 입력해 치수 적용.");
-        B("원",()=>Begin("circle"),"중심과 둘레를 찍거나 U/V/반지름을 입력해 치수 적용.");
-        B("선 / 다각형",()=>Begin("polygon"),"점을 차례대로 찍고 첫 점 또는 스케치 닫기를 누릅니다.");
-        B("스케치 닫기",()=>Try(()=>sketch.Finish()),"자기교차하지 않는 다각형을 만드세요.");
-        B("치수 적용",ApplyDimensions,"현재 스케치 치수 또는 선택한 꼭짓점 좌표를 적용합니다.");
-        B("돌출 추가",async()=>{operation.SelectedIndex=0;await ApplyFeature(false);},"스케치를 평면 법선 방향으로 돌출해 재료를 추가합니다.");
-        B("잘라내기",async()=>{operation.SelectedIndex=1;await ApplyFeature(false);},"스케치 돌출 영역을 기존 솔리드에서 뺍니다. 첫 피처로 사용할 수 없습니다.");
-        B("피처 수정",async()=>await ApplyFeature(true),"트리에서 선택한 피처의 스케치·평면·깊이를 수정하고 이후 피처를 재계산합니다.");
-        B("피처 삭제",async()=>await RemoveFeature(),"선택 피처를 삭제하고 재계산합니다. 실패하면 기존 모델을 유지합니다.");
-        B("실행 취소",async()=>await Undo(false),"Ctrl+Z · 직전 피처 변경으로 되돌립니다.");
-        B("다시 실행",async()=>await Undo(true),"Ctrl+Y · 취소한 피처 변경을 다시 적용합니다.");
-        var split=new SplitContainer{Size=new Size(1400,750),Dock=DockStyle.Fill,SplitterDistance=330,Panel1MinSize=310,Panel2MinSize=500,FixedPanel=FixedPanel.Panel1};
-        var props=new TableLayoutPanel{Dock=DockStyle.Bottom,Height=468,ColumnCount=2,Padding=new Padding(8),AutoScroll=true};
-        props.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,48));props.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,52));
-        plane.Items.AddRange(new object[]{"XY → +Z","XZ → −Y","YZ → +X"});plane.SelectedIndex=0;
-        operation.Items.AddRange(new object[]{"재료 추가","재료 제거"});operation.SelectedIndex=0;
-        void Row(string label,Control control)
-        {
-            int row=props.RowCount++;props.RowStyles.Add(new RowStyle(SizeType.Absolute,31));
-            props.Controls.Add(new Label{Text=label,Dock=DockStyle.Fill,TextAlign=ContentAlignment.MiddleLeft},0,row);
-            control.Dock=DockStyle.Fill;props.Controls.Add(control,1,row);
-        }
-        Row("피처 이름",featureName);Row("작업",operation);Row("스케치 평면 / 방향",plane);
-        Row("평면 오프셋 (mm)",offset);Row("돌출 깊이 (mm)",depth);
-        Row("U / 점 X (mm)",u);Row("V / 점 Y (mm)",v);Row("사각형 너비 (mm)",width);Row("사각형 높이 (mm)",height);
-        Row("원 반지름 (mm)",radius);Row("다각형 꼭짓점 번호",vertex);Row("스냅 간격 (mm)",grid);
-        var instructions=new Label{Text="치수 입력 → 치수 적용 → 돌출/잘라내기\n기존 피처: 트리 선택 → 수정 → 피처 수정",Dock=DockStyle.Fill,AutoSize=false,ForeColor=Color.DarkSlateGray};
-        props.Controls.Add(instructions,0,props.RowCount);props.SetColumnSpan(instructions,2);
-        props.RowStyles.Add(new RowStyle(SizeType.Absolute,48));props.RowCount++;
-        split.Panel1.Controls.Add(tree);split.Panel1.Controls.Add(props);
-        var sketchPage=new TabPage("2D 스케치 (U/V)");sketchPage.Controls.Add(sketch);
-        var solidPage=new TabPage("3D 솔리드");
-        var views=new FlowLayoutPanel{Dock=DockStyle.Top,Height=38};
-        foreach(string name in new[]{"등각","정면","평면","화면 맞춤","와이어프레임"})
-        {
-            string current=name;var button=new Button{Text=name,AutoSize=true,Height=30};
-            button.Click+=(_,_)=>{if(current=="화면 맞춤")viewport.Fit();else if(current=="와이어프레임"){viewport.Wire=!viewport.Wire;viewport.Invalidate();}else viewport.SetView(current=="등각"?"iso":current=="정면"?"front":"top");};
-            views.Controls.Add(button);
-        }
-        solidPage.Controls.Add(viewport);solidPage.Controls.Add(views);
-        var detailsPage=new TabPage("형상 정보 / 검증");detailsPage.Controls.Add(report);
-        tabs.TabPages.AddRange(new[]{sketchPage,solidPage,detailsPage});split.Panel2.Controls.Add(tabs);
-        var bottom=new StatusStrip();status.Spring=true;status.TextAlign=ContentAlignment.MiddleLeft;bottom.Items.Add(status);bottom.Items.Add("mm · 단일 솔리드 · 피처 프로젝트 v1");
-        Controls.Add(split);Controls.Add(bar);Controls.Add(bottom);
+        BuildShell();
         sketch.Changed+=(_,_)=>ShowSketchDimensions();
         grid.ValueChanged+=(_,_)=>sketch.Grid=(double)grid.Value;
         vertex.ValueChanged+=(_,_)=>{if(sync||sketch.Sketch.Kind=="circle"||!sketch.Closed)return;int i=(int)vertex.Value-1;if(i<sketch.Sketch.Points.Count){u.Value=(decimal)sketch.Sketch.Points[i][0];v.Value=(decimal)sketch.Sketch.Points[i][1];}};
         tree.AfterSelect+=(_,e)=>{if(e.Node?.Tag is int i)SelectFeature(i);};
-        KeyDown+=async(_,e)=>{if(e.Control&&e.KeyCode==Keys.Z){e.SuppressKeyPress=true;await Undo(false);}else if(e.Control&&e.KeyCode==Keys.Y){e.SuppressKeyPress=true;await Undo(true);}else if(e.Control&&e.KeyCode==Keys.S){e.SuppressKeyPress=true;SaveProject();}else if(e.KeyCode==Keys.F1){e.SuppressKeyPress=true;Help();}};
+        KeyDown+=async(_,e)=>{if(e.Control&&e.KeyCode==Keys.Z){e.SuppressKeyPress=true;await Undo(false);}else if(e.Control&&e.KeyCode==Keys.Y){e.SuppressKeyPress=true;await Undo(true);}else if(e.Control&&e.KeyCode==Keys.S){e.SuppressKeyPress=true;SaveProject();}else if(e.KeyCode==Keys.Escape){e.SuppressKeyPress=true;CancelProperty();}else if(e.KeyCode==Keys.F1){e.SuppressKeyPress=true;Help();}};
         FormClosing+=(_,e)=>{if(rebuilding){e.Cancel=true;return;}if(dirty&&MessageBox.Show(this,"저장하지 않은 모델 변경을 닫을까요?","변경 확인",MessageBoxButtons.YesNo,MessageBoxIcon.Question)!=DialogResult.Yes)e.Cancel=true;};
         FormClosed+=(_,_)=>{tips.Dispose();try{Directory.Delete(temp,true);}catch{}};
-        BuildTree();Begin("rectangle");
+        BuildTree();tabs.SelectedIndex=1;status.Text="스케치 탭에서 도형을 선택해 시작하세요.";
     }
     readonly ToolTip tips=new(){AutoPopDelay=15000};
     static NumericUpDown N(decimal value,decimal min,decimal max)=>new(){Value=value,Minimum=min,Maximum=max,DecimalPlaces=3,Increment=1,ThousandsSeparator=false};
@@ -108,7 +47,8 @@ sealed class ModelingWindow : Form
     bool CanReplace()=>!dirty||MessageBox.Show(this,"저장하지 않은 모델 변경을 버리고 진행할까요?","변경 확인",MessageBoxButtons.YesNo,MessageBoxIcon.Question)==DialogResult.Yes;
     void Begin(string mode)
     {
-        dimensionMode=mode;sketch.Begin(mode);tabs.SelectedIndex=0;
+        dimensionMode=mode;editingExisting=false;sketch.Begin(mode);tabs.SelectedIndex=0;
+        if(shellReady)OpenSketchProperties();
         featureName.Text=(operation.SelectedIndex==1?"잘라내기 ":"돌출 ")+(document.Features.Count+1);
         status.Text="스케치를 그리거나 좌표·치수를 입력하고 '치수 적용'을 누르세요.";
     }
@@ -155,10 +95,21 @@ sealed class ModelingWindow : Form
     }
     void BuildTree()
     {
+        propertyActive=false;editingExisting=false;managerTabs.SelectedIndex=0;
         tree.Nodes.Clear();var root=tree.Nodes.Add(document.Name+" · rev "+document.Revision);
-        root.Nodes.Add("단위 mm / XY·XZ·YZ 기준면");
-        for(int i=0;i<document.Features.Count;i++){var f=document.Features[i];var node=root.Nodes.Add($"{i+1}. {f.Name} [{f.Plane} / {f.Depth:G6} mm]");node.Tag=i;}
-        root.Expand();selected=-1;Text=$"디엠아이(DMI) CAD 0.3 — {document.Name}"+(dirty?" *":"");
+        root.Nodes.Add("주석 / 단위: mm");root.Nodes.Add("재질 <지정되지 않음>");
+        var planes=root.Nodes.Add("기준면");
+        planes.Nodes.Add("XY 기준면");planes.Nodes.Add("XZ 기준면");planes.Nodes.Add("YZ 기준면");
+        root.Nodes.Add("원점");
+        string filter=treeFilter.Text.Trim();
+        for(int i=0;i<document.Features.Count;i++)
+        {
+            var f=document.Features[i];
+            if(filter.Length>0&&!f.Name.Contains(filter,StringComparison.OrdinalIgnoreCase))continue;
+            var node=root.Nodes.Add($"{i+1}. {f.Name} [{f.Plane} / {f.Depth:G6} mm]");node.Tag=i;
+            node.Nodes.Add(f.Sketch.Kind=="circle"?"스케치 · 원":"스케치 · 닫힌 다각형");
+        }
+        root.Expand();selected=-1;Text=$"디엠아이(DMI) CAD 0.3.1 — {document.Name}"+(dirty?" *":"");
     }
     async Task<bool> Build(PartDocument next)
     {
@@ -181,22 +132,22 @@ sealed class ModelingWindow : Form
         catch(Exception ex){MessageBox.Show(this,ex.Message+"\n기존 모델은 변경하지 않았습니다.","모델 재계산 실패");return false;}
         finally{rebuilding=false;Enabled=true;UseWaitCursor=false;status.Text="준비";}
     }
-    async Task Commit(PartDocument next)
+    async Task<bool> Commit(PartDocument next)
     {
         next.Revision=document.Revision+1;
-        if(!await Build(next))return;
-        undo.Push(document.Copy());redo.Clear();document=next;dirty=true;BuildTree();tabs.SelectedIndex=1;status.Text="모델 재계산 완료 · 프로젝트를 저장하세요.";
+        if(!await Build(next))return false;
+        undo.Push(document.Copy());redo.Clear();document=next;dirty=true;BuildTree();tabs.SelectedIndex=1;status.Text="모델 재계산 완료 · 프로젝트를 저장하세요.";return true;
     }
-    async Task ApplyFeature(bool edit)
+    async Task<bool> ApplyFeature(bool edit)
     {
-        if(!sketch.Closed){MessageBox.Show(this,"닫힌 스케치를 먼저 그리거나 치수를 적용하세요.");return;}
-        if(edit&&(selected<0||selected>=document.Features.Count)){MessageBox.Show(this,"트리에서 수정할 피처를 선택하세요.");return;}
+        if(!sketch.Closed){MessageBox.Show(this,"닫힌 스케치를 먼저 그리거나 치수를 적용하세요.");return false;}
+        if(edit&&(selected<0||selected>=document.Features.Count)){MessageBox.Show(this,"트리에서 수정할 피처를 선택하세요.");return false;}
         var next=document.Copy();
         var feature=new PartFeature{Name=string.IsNullOrWhiteSpace(featureName.Text)?"피처 "+(next.Features.Count+1):featureName.Text,
             Operation=operation.SelectedIndex==0?"add":"cut",Plane=plane.SelectedIndex==0?"XY":plane.SelectedIndex==1?"XZ":"YZ",
             Offset=(double)offset.Value,Depth=(double)depth.Value,Sketch=sketch.Sketch.Copy()};
         if(edit){feature.Id=next.Features[selected].Id;next.Features[selected]=feature;}else next.Features.Add(feature);
-        await Commit(next);
+        return await Commit(next);
     }
     async Task RemoveFeature()
     {
@@ -278,6 +229,6 @@ sealed class ModelingWindow : Form
         return document.Features.Count==3&&document.Name=="예제 플레이트";
     }
     void Help()=>MessageBox.Show(this,
-        "디엠아이 CAD 0.3 — 시작하기\n\n1. 사각형/원/선 선택 → 2D에서 점을 찍습니다.\n2. 숫자로 만들려면 U/V와 너비/높이 또는 반지름 입력 → 치수 적용.\n3. 평면·오프셋·깊이 설정 → 돌출 추가 또는 잘라내기.\n4. 트리에서 피처 선택 → 스케치/치수 변경 → 치수 적용 → 피처 수정.\n5. Ctrl+Z/Y: 실행 취소/다시 실행. 프로젝트 저장은 .dmipart, 형상 출력은 STEP.\n\n평면: XY는 +Z, XZ는 −Y, YZ는 +X 방향으로 돌출합니다.\n2D: Ctrl+가운데 이동, 휠 확대. 3D: 가운데 회전, Ctrl+가운데 이동.\n사각형/원의 숫자는 직접 치수를 정의합니다. 일반 스케치 구속 솔버는 아직 없습니다.\n피처에 적용하지 않은 임시 스케치는 저장되지 않습니다.\n절삭/금형/해석/정밀 선택·측정 기능은 현재 제공되지 않습니다.",
+        "디엠아이 CAD 0.3.1 — 시작하기\n\n1. 상단 스케치 탭 → 사각형/원/선 선택.\n2. 왼쪽 속성에서 좌표·치수 입력 → 스케치 치수 적용.\n3. 스케치 종료 또는 ✓ 확인으로 스케치를 유지합니다.\n4. 피처 탭 → 돌출 보스/베이스 또는 돌출 컷.\n5. 왼쪽 깊이·평면·오프셋 설정 → ✓ 확인.\n6. 피처 트리에서 우클릭 → 피처 정의 편집 / 스케치 편집.\n7. 변경은 확인으로 계산, 취소 또는 Esc로 미적용 입력 취소.\n\nCtrl+Z/Y: 피처 변경 취소/다시 실행. Ctrl+S: 프로젝트 저장.\n3D: 가운데 회전, Ctrl+가운데 이동, 휠 확대.\n일반 스케치 구속 솔버, 정밀 선택/측정, 도면·조립·금형·NC는 아직 없습니다.\nSOLIDWORKS 2020 기본 배치를 참고한 독립적인 디엠아이 UI이며 완전한 조작 호환은 아닙니다.",
         "도움말 · F1",MessageBoxButtons.OK,MessageBoxIcon.Information);
 }

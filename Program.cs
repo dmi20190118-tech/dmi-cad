@@ -22,7 +22,7 @@ static class Program
             {
                 try
                 {
-                    if (await main.LoadDemo()) await File.WriteAllTextAsync(args[1], "ready");
+                    if (await main.LoadDemo() && await main.RunUiWorkflowChecks()) await File.WriteAllTextAsync(args[1], "ready");
                     else await File.WriteAllTextAsync(args[1] + ".error", "Example model generation failed.");
                 }
                 catch (Exception ex) { await File.WriteAllTextAsync(args[1] + ".error", ex.ToString()); }
@@ -300,9 +300,6 @@ sealed class Viewport : Control
         if (Width < 2 || Height < 2) return;
         using var bg = new LinearGradientBrush(ClientRectangle, Color.FromArgb(222, 231, 242), Color.FromArgb(250, 251, 253), 90);
         g.FillRectangle(bg, ClientRectangle);
-        using var grid = new Pen(Color.FromArgb(40, 110, 130, 155));
-        for (int x = Width / 2 % 30; x < Width; x += 30) g.DrawLine(grid, x, 0, x, Height);
-        for (int y = Height / 2 % 30; y < Height; y += 30) g.DrawLine(grid, 0, y, Width, y);
         double w = (double)Model.Width, d = (double)Model.Depth, h = Sketch ? 0 : (double)Model.Height;
         float scale = (float)(Math.Min(Width, Height) * .46 / Math.Max(w, Math.Max(d, Math.Max(h, 1)))) * zoom;
         var points = new[] { (-w/2,-d/2,-h/2), (w/2,-d/2,-h/2), (w/2,d/2,-h/2), (-w/2,d/2,-h/2),
