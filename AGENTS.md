@@ -130,3 +130,13 @@ Original image: https://static.wixstatic.com/media/b61e9b_4c68109deaca422494f28c
 Desktop embedded original bytes: Brand.cs.
 
 The mark contains orange D (Design), green M (Mold), blue I (Injection). Preserve original pixels, aspect ratio, labels and colors; do not redraw, crop, stretch or recolor it. Place on a contrasting, preferably white, background so labels remain legible. Use across application headers, help, instruction sheets and educational materials. Apply the identity without replacing functional engineering UI with decorative branding.
+
+## 0.3 exact modeling implementation (2026-10-25)
+
+Default Windows window is now ModelingWindow, using PartDocument/PartFeature/PartSketch and engine/parametric.py. Exact OCCT solids are regenerated from versioned mm-based .dmipart feature projects.
+
+Implemented bounded scope: principal XY/XZ/YZ planes, offsets/depths, circles and closed polygons (including dimension-defined rectangles), additive extrusion and boolean cuts, single-solid validation and actual volume changes, feature edits/deletion/recomputation, undo/redo snapshots, save/reopen and STEP/IGES/STL output. The existing mesh viewport displays tessellation; exact BRep operations occur in the engine. Basic model name/revision/mesh bounds can seed a manual machining-sheet draft.
+
+This is not a general sketch constraint solver, face-attached sketching, topology selection/measurement, fillet/surface suite, drafting, assembly, mold design, CAM/NC, or automatic sheet synchronization. Keep those absent capabilities explicit.
+
+See docs/MODELING-0.3.ko.md and examples/plate.dmipart. CI checks analytic volumes, edited volume, STEP reread, principal planes, invalid/self-intersecting/disconnected/no-effect features, document snapshots, and actual GUI generation of a three-feature part. preview/modeler-0.3.png is captured from that GUI when CI succeeds. Do not describe those checks as manual mouse testing or production machining validation.
