@@ -7,6 +7,17 @@ sealed class SketchEditor : Control
     public bool Closed { get; private set; }
     public string Mode { get; private set; } = "rectangle";
     public double Grid { get; set; } = 1;
+    public string PlaneLabel { get; set; } = "스케치 평면";
+    public List<double[][]> ReferenceTriangles { get; } = new();
+    public void SetReference(IEnumerable<double[][]> triangles,string label)
+    {
+        ReferenceTriangles.Clear();ReferenceTriangles.AddRange(triangles);PlaneLabel=label;Invalidate();
+    }
+    public void ClickWorldForCheck(double u,double v)
+    {
+        PointF p=Screen(new[]{u,v});
+        OnMouseDown(new MouseEventArgs(MouseButtons.Left,1,(int)Math.Round(p.X),(int)Math.Round(p.Y),0));
+    }
     public event EventHandler? Changed;
     readonly List<double[]> clicks = new();
     float scale=4;
@@ -37,6 +48,7 @@ sealed class SketchEditor : Control
     public void Fit()
     {
         var pts=Sketch.Kind=="circle"?new[]{new[]{Sketch.Center[0]-Sketch.Radius,Sketch.Center[1]-Sketch.Radius},new[]{Sketch.Center[0]+Sketch.Radius,Sketch.Center[1]+Sketch.Radius}}:Sketch.Points.ToArray();
+        if(pts.Length==0&&ReferenceTriangles.Count>0)pts=ReferenceTriangles.SelectMany(t=>t).ToArray();
         if(pts.Length==0){scale=4;pan=PointF.Empty;Invalidate();return;}
         double minX=pts.Min(p=>p[0]),maxX=pts.Max(p=>p[0]),minY=pts.Min(p=>p[1]),maxY=pts.Max(p=>p[1]);
         scale=(float)Math.Clamp(Math.Min(Math.Max(Width,300)/(Math.Max(maxX-minX,1)*1.4),Math.Max(Height,300)/(Math.Max(maxY-minY,1)*1.4)),.05,100);
@@ -90,6 +102,9 @@ sealed class SketchEditor : Control
         float cx=Width/2f+pan.X,cy=Height/2f+pan.Y;
         for(float x=(cx%grid+grid)%grid;x<Width;x+=grid)g.DrawLine(gridPen,x,0,x,Height);
         for(float y=(cy%grid+grid)%grid;y<Height;y+=grid)g.DrawLine(gridPen,0,y,Width,y);
+        using(var fill=new SolidBrush(Color.FromArgb(35,110,160,200)))
+        using(var refEdge=new Pen(Color.FromArgb(25,80,130,170)))
+            foreach(var triangle in ReferenceTriangles){var p=triangle.Select(Screen).ToArray();g.FillPolygon(fill,p);g.DrawPolygon(refEdge,p);}
         using var axis=new Pen(Color.FromArgb(135,155,170));g.DrawLine(axis,0,cy,Width,cy);g.DrawLine(axis,cx,0,cx,Height);
         using var line=new Pen(Color.FromArgb(24,105,150),2);
         if(Closed&&Sketch.Kind=="circle")
@@ -108,7 +123,8 @@ sealed class SketchEditor : Control
                 g.DrawString($"{i+1}: {points[i][0]:G5}, {points[i][1]:G5}",Font,Brushes.DarkSlateGray,p.X+6,p.Y+5);
             }
         }
-        g.DrawString(Closed?"닫힌 스케치 · 치수 입력 / 피처 생성 가능":"사각형: 대각 두 점 / 원: 중심과 둘레 / 선: 점을 찍은 뒤 닫기",Font,Brushes.DimGray,12,12);
+        g.DrawString(Closed?"닫힌 스케치 · 치수 입력 / 피처 생성 가능":"사각형: 대각 두 점 / 원: 중심과 둘레 / 선: 점을 찍은 뒤 닫기",Font,Brushes.DimGray,12,34);
+        g.DrawString(PlaneLabel,Font,Brushes.DarkSlateBlue,12,12);
         g.DrawString("U → / V ↑ · mm · Ctrl+가운데: 이동 · 휠: 확대",Font,Brushes.DimGray,12,Height-30);
     }
 }

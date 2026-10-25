@@ -34,7 +34,9 @@ sealed partial class ModelingWindow
     void BeginFromFace(SketchPlaneChoice choice,string kind,bool cut)
     {
         if(!sketchPlanes.Contains(choice))throw new InvalidOperationException("모델이 변경됐습니다. 면 목록을 다시 여세요.");
-        selected=-1;Begin(kind);
+        CancelFacePick();EndSketchSession();selected=-1;pendingPlaneSourceId="";planeLink.Checked=false;RefreshPlaneLink();
+        throughAll.Checked=false;midplane.Checked=false;faceSketch=true;faceOutwardReverse=choice.OutwardReverse;sketchSession=true;
+        Begin(kind);
         plane.SelectedIndex=choice.Plane=="XY"?0:choice.Plane=="XZ"?1:2;
         offset.Value=(decimal)choice.Offset;operation.SelectedIndex=cut?1:0;
         reverse.Checked=cut?!choice.OutwardReverse:choice.OutwardReverse;
@@ -47,6 +49,7 @@ sealed partial class ModelingWindow
         var candidates=document.Features.Where(f=>f.Operation=="add"&&f.FeatureKind=="extrude"&&!f.Midplane&&f.Plane==choice.Plane&&Math.Abs(document.EndOffset(f)-choice.Offset)<1e-7&&f.Reverse==choice.OutwardReverse).ToList();
         if(candidates.Count==1){pendingPlaneSourceId=candidates[0].Id;planeLink.Checked=true;}
         RefreshPlaneLink();
+        SetFaceSketchReference(choice);
         propertyHint.Text=planeLink.Checked?"돌출 끝 평면에 연결했습니다.\n원본 깊이가 바뀌면 평면도 이동합니다.\n좌표·치수 입력 후 치수 적용.":"선택 면의 위치를 복사했습니다.\n좌표·치수 입력 후 치수 적용.\n모델 변경 후 평면 위치를 확인하세요.";
         status.Text=$"면 {choice.FaceIndex+1}: {choice.Plane}, {choice.Offset:G9} mm — "+(planeLink.Checked?"돌출 끝 평면 연결됨":"고정 위치 복사됨");
     }
@@ -60,16 +63,18 @@ sealed partial class ModelingWindow
         viewport.ClickForCheck(pixel);
         if(pickedPlane?.FaceIndex!=top.FaceIndex||viewport.SelectedFace!=top.FaceIndex)throw new Exception("Screen face picking failed.");
         await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","face-selection-1.0-preview1.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","face-selection-1.0-preview2.png"),System.Drawing.Imaging.ImageFormat.Png);}
         StartPickedSketch();
         if(pickedPlane!=null||facePickActive)throw new Exception("Picked sketch retained a stale face target.");
         if(!planeLink.Checked||plane.Enabled||offset.Enabled)throw new Exception("Plane association did not lock numeric snapshot controls.");
-        if(plane.SelectedIndex!=0||offset.Value!=10||!reverse.Checked||operation.SelectedIndex!=1)
+        if(plane.SelectedIndex!=0||offset.Value!=10||reverse.Checked||operation.SelectedIndex!=0)
             throw new Exception("Exact top face plane or inward cut direction was not applied.");
+        Begin("circle");
+        if(offset.Value!=10||!planeLink.Checked)throw new Exception("Changing sketch tool lost face plane.");
         u.Value=75;v.Value=50;radius.Value=3;ApplyDimensions();FinishSketchSession();
         OpenFeatureProperties(false,1);throughAll.Checked=true;
         await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-1.0-preview1.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-1.0-preview2.png"),System.Drawing.Imaging.ImageFormat.Png);}
         await ConfirmProperty();
         if(document.Features.Count!=count+1||document.Features[^1].Offset!=10||!document.Features[^1].Reverse||!document.Features[^1].ThroughAll)
             throw new Exception("Face-started through cut failed.");
@@ -83,7 +88,7 @@ sealed partial class ModelingWindow
         OpenFeatureProperties(true);
         if(offset.Value!=15||!planeLink.Checked)throw new Exception("Properties displayed a stale linked offset.");
         await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-1.0-preview1.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-1.0-preview2.png"),System.Drawing.Imaging.ImageFormat.Png);}
         CancelProperty();
         string file=Path.Combine(temp,"face-sketch.dmipart");
         await File.WriteAllTextAsync(file,JsonSerializer.Serialize(document.Copy(),PartDocument.Json));

@@ -104,7 +104,7 @@ sealed partial class ModelingWindow
         }
         void Separator(FlowLayoutPanel flow)=>flow.Controls.Add(new Panel{Width=1,Height=66,Margin=new Padding(9,3,9,3),BackColor=Color.FromArgb(202,209,217)});
         var features=Page("피처");
-        C(features,"스케치","line",()=>Begin("rectangle"),"기준 평면에서 스케치를 시작합니다.");
+        C(features,"스케치 시작","line",()=>Begin("rectangle"),"기준 평면에서 스케치를 시작합니다.");
         Separator(features);
         C(features,"돌출 보스\n/ 베이스","extrude",()=>OpenFeatureProperties(false,0),"닫힌 스케치로 재료를 추가합니다. 왼쪽 속성에서 깊이 설정 후 확인.");
         C(features,"돌출 컷","cut",()=>OpenFeatureProperties(false,1),"닫힌 스케치를 돌출해 기존 솔리드에서 재료를 제거합니다.");
@@ -117,7 +117,7 @@ sealed partial class ModelingWindow
         C(features,"회전 컷","cut",()=>OpenFeatureProperties(false,1,"revolve"),"회전한 스케치 형상으로 기존 솔리드를 잘라냅니다.");
         C(features,"모따기\n(개발 예정)","view",()=>{},"현재 미지원 기능입니다.",false);
         var sketches=Page("스케치");
-        C(sketches,"선택면\n스케치","circle",StartPickedSketch,"화면에서 선택한 평면에 원 스케치를 시작합니다. 좌표와 치수를 편집할 수 있습니다.");
+        C(sketches,"선택면\n스케치","circle",StartPickedSketch,"화면에서 선택한 평면에 스케치를 시작합니다. 도형을 자유롭게 바꿀 수 있습니다. 좌표와 치수를 편집할 수 있습니다.");
         C(sketches,"화면 면\n선택","part",StartFacePick,"모델에서 평면 면 클릭 → 면 스케치 시작. Esc로 선택 작업 취소.");
         C(sketches,"면에서\n스케치","part",ChooseSketchPlane,"현재 솔리드의 정밀 평면 면 목록에서 선택해 원/사각형 스케치를 시작합니다. 위치는 고정값으로 복사됩니다.");
         C(sketches,"스케치 종료","check",FinishSketchSession,"닫힌 스케치를 유지하고 모델 화면으로 돌아갑니다.");
@@ -226,7 +226,7 @@ sealed partial class ModelingWindow
     }
     void OpenSketchProperties()
     {
-        propertyKind="sketch";propertyActive=true;propertyHeading.Text=editingExisting?"스케치 편집":"스케치";
+        sketchSession=true;sketch.PlaneLabel=CurrentPlaneLabel();propertyKind="sketch";propertyActive=true;propertyHeading.Text=editingExisting?"스케치 편집":"스케치";
         propertyHint.Text="좌표·치수를 입력한 뒤 '스케치 치수 적용'.\n원/사각형을 그리거나 다각형을 닫으세요.\n확인은 스케치를 유지하고 돌아갑니다.";
         managerTabs.SelectedIndex=1;commandTabs.SelectedIndex=1;
     }
@@ -256,10 +256,10 @@ sealed partial class ModelingWindow
     }
     void CancelProperty()
     {
-        if(!propertyActive)return;
+        if(!propertyActive){EndSketchSession();return;}
         if(selected>=0&&selected<document.Features.Count)SelectFeature(selected);else sketch.Begin(dimensionMode);
         propertyActive=false;editingExisting=false;managerTabs.SelectedIndex=0;tabs.SelectedIndex=document.Features.Count>0?1:0;
-        status.Text="미적용 입력을 취소했습니다. 저장된 모델은 변경하지 않았습니다.";
+        EndSketchSession();status.Text="미적용 입력을 취소했습니다. 저장된 모델은 변경하지 않았습니다.";
     }
     public async Task<bool> RunUiWorkflowChecks()
     {
@@ -270,7 +270,7 @@ sealed partial class ModelingWindow
         if(reverse.Enabled)throw new Exception("Midplane did not disable irrelevant direction control.");
         if(managerTabs.SelectedIndex!=1)throw new Exception("Property manager did not activate.");
         await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));Directory.CreateDirectory("preview");preview.Save(Path.Combine("preview","property-manager-1.0-preview1.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));Directory.CreateDirectory("preview");preview.Save(Path.Combine("preview","property-manager-1.0-preview2.png"),System.Drawing.Imaging.ImageFormat.Png);}
         await ConfirmProperty();
         if(document.Features.Count!=before+1||!document.Features[^1].Reverse||!document.Copy().Features[^1].Reverse||!document.Copy().Features[^1].Midplane||managerTabs.SelectedIndex!=0)throw new Exception("Property confirmation failed.");
         tree.SelectedNode=tree.Nodes[0].Nodes.Cast<TreeNode>().First(n=>n.Tag is int i&&i==0);string snapshot=JsonSerializer.Serialize(document,PartDocument.Json);
@@ -287,7 +287,7 @@ sealed partial class ModelingWindow
         OpenFeatureProperties(true);throughAll.Checked=true;offset.Value=0;reverse.Checked=false;
         if(depth.Enabled||midplane.Enabled)throw new Exception("Through-all left incompatible inputs enabled.");
         await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-1.0-preview1.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-1.0-preview2.png"),System.Drawing.Imaging.ImageFormat.Png);}
         await ConfirmProperty();
         if(!document.Features[1].ThroughAll)throw new Exception("Through-all edit was not committed.");
         tree.SelectedNode=tree.Nodes[0].Nodes.Cast<TreeNode>().First(n=>n.Tag is int i&&i==0);
@@ -306,7 +306,7 @@ sealed partial class ModelingWindow
         if(selected!=0)throw new Exception("Feature selection did not activate target.");
         tree.SelectedNode=tree.Nodes[0];
         if(selected!=-1)throw new Exception("Root selection retained a stale feature target.");
-        await CheckFaceSketchWorkflow();await CheckAdvancedWorkflow();
+        await CheckFaceSketchWorkflow();await CheckCoreSketchWorkflow();await CheckAdvancedWorkflow();
         managerTabs.SelectedIndex=0;tabs.SelectedIndex=1;return true;
     }
 }

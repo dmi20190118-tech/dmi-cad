@@ -74,7 +74,8 @@ sealed partial class ModelingWindow
     }
     void FaceWasPicked(int id)
     {
-        if(!facePickActive){viewport.SelectedFace=-1;viewport.Invalidate();return;}
+        if(!facePickActive&&propertyActive){viewport.SelectedFace=-1;viewport.Invalidate();return;}
+        facePickActive=true;
         pickedPlane=sketchPlanes.FirstOrDefault(p=>p.FaceIndex==id);
         if(pickedPlane==null)
         {
@@ -87,7 +88,7 @@ sealed partial class ModelingWindow
     void StartPickedSketch()
     {
         if(!facePickActive||pickedPlane==null){MessageBox.Show(this,"먼저 '화면 면 선택'을 누르고 평평한 면을 클릭하세요.");return;}
-        var choice=pickedPlane;CancelFacePick();BeginFromFace(choice,"circle",true);
+        var choice=pickedPlane;CancelFacePick();BeginFromFace(choice,"rectangle",false);
     }
     void CancelFacePick(){facePickActive=false;pickedPlane=null;viewport.SelectedFace=-1;viewport.Invalidate();}
 }

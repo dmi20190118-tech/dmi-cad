@@ -1,12 +1,12 @@
 [Setup]
 AppId=DMI-CAD-Prototype
 AppName=DMI CAD
-AppVersion=1.0-preview1
+AppVersion=1.0-preview2
 DefaultDirName={localappdata}\Programs\DMI CAD
 DefaultGroupName=DMI CAD
 PrivilegesRequired=lowest
 OutputDir=installer-output
-OutputBaseFilename=DMI-CAD-Setup-1.0-preview1
+OutputBaseFilename=DMI-CAD-Setup-1.0-preview2
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
