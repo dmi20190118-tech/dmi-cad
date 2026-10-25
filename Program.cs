@@ -17,7 +17,14 @@ static class Program
             return;
         }
         ApplicationConfiguration.Initialize();
-        var main = new ModelingWindow();
+        ModelingWindow main;
+        try { main = new ModelingWindow(); }
+        catch(Exception ex)
+        {
+            if(Verifying&&args.Length>1)File.WriteAllText(args[1]+".error",ex.ToString());
+            else MessageBox.Show(ex.Message,"시작 실패");
+            Environment.ExitCode=1;return;
+        }
         if (args.Length > 1 && args[0] == "--demo-ready")
         {
             main.Shown += async (_, _) =>

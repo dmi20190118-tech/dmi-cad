@@ -64,7 +64,7 @@ sealed partial class ModelingWindow : Form
         BuildTree();tabs.SelectedIndex=1;status.Text="스케치 탭에서 도형을 선택해 시작하세요.";
     }
     readonly ToolTip tips=new(){AutoPopDelay=15000};
-    static NumericUpDown N(decimal value,decimal min,decimal max)=>new(){Value=value,Minimum=min,Maximum=max,DecimalPlaces=3,Increment=1,ThousandsSeparator=false};
+    static NumericUpDown N(decimal value,decimal min,decimal max)=>new(){Minimum=min,Maximum=max,Value=value,DecimalPlaces=3,Increment=1,ThousandsSeparator=false};
     void Try(Action action){try{action();}catch(Exception ex){MessageBox.Show(this,ex.Message,"확인 필요");}}
     bool CanReplace()=>!dirty||MessageBox.Show(this,"저장하지 않은 모델 변경을 버리고 진행할까요?","변경 확인",MessageBoxButtons.YesNo,MessageBoxIcon.Question)==DialogResult.Yes;
     void Begin(string mode)
