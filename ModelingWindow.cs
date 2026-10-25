@@ -15,6 +15,7 @@ sealed partial class ModelingWindow : Form
         height=N(70,.001m,2000000),radius=N(5,.001m,1000000),depth=N(10,.001m,10000),
         offset=N(0,-1000000,1000000),vertex=N(1,1,500),grid=N(1,.001m,1000);
     readonly TextBox featureName=new(){Text="돌출 1",MaxLength=200,Dock=DockStyle.Fill};
+    readonly CheckBox throughAll=new(){Text="끝까지 관통",AutoSize=true};
     readonly CheckBox midplane=new(){Text="중간 평면",AutoSize=true};
     readonly CheckBox reverse=new(){Text="반대 방향",AutoSize=true};
     readonly ComboBox plane=new(){DropDownStyle=ComboBoxStyle.DropDownList,Dock=DockStyle.Fill};
@@ -30,7 +31,7 @@ sealed partial class ModelingWindow : Form
     public ModelingWindow()
     {
         Directory.CreateDirectory(temp);
-        Text="디엠아이(DMI) CAD 0.3.3 — 정밀 스케치 / 솔리드";
+        Text="디엠아이(DMI) CAD 0.3.4 — 정밀 스케치 / 솔리드";
         Width=1500;Height=960;MinimumSize=new Size(1120,760);Font=new Font("Segoe UI",9);
         KeyPreview=true;
         BuildShell();
@@ -61,7 +62,7 @@ sealed partial class ModelingWindow : Form
     bool CanReplace()=>!dirty||MessageBox.Show(this,"저장하지 않은 모델 변경을 버리고 진행할까요?","변경 확인",MessageBoxButtons.YesNo,MessageBoxIcon.Question)==DialogResult.Yes;
     void Begin(string mode)
     {
-        dimensionMode=mode;editingExisting=false;reverse.Checked=false;midplane.Checked=false;sketch.Begin(mode);tabs.SelectedIndex=0;
+        dimensionMode=mode;editingExisting=false;throughAll.Checked=false;reverse.Checked=false;midplane.Checked=false;sketch.Begin(mode);tabs.SelectedIndex=0;
         if(shellReady)OpenSketchProperties();
         featureName.Text=(operation.SelectedIndex==1?"잘라내기 ":"돌출 ")+(document.Features.Count+1);
         status.Text="스케치를 그리거나 좌표·치수를 입력하고 '치수 적용'을 누르세요.";
@@ -104,7 +105,7 @@ sealed partial class ModelingWindow : Form
         if(index<0||index>=document.Features.Count)return;
         selected=index;var f=document.Features[index];
         featureName.Text=f.Name;plane.SelectedIndex=f.Plane=="XY"?0:f.Plane=="XZ"?1:2;operation.SelectedIndex=f.Operation=="add"?0:1;
-        midplane.Checked=f.Midplane;reverse.Checked=f.Reverse;offset.Value=(decimal)f.Offset;depth.Value=(decimal)f.Depth;dimensionMode=f.Sketch.Kind=="circle"?"circle":f.Sketch.DimensionMode;
+        throughAll.Checked=f.ThroughAll;midplane.Checked=f.Midplane;reverse.Checked=f.Reverse;offset.Value=(decimal)f.Offset;depth.Value=(decimal)f.Depth;dimensionMode=f.Sketch.Kind=="circle"?"circle":f.Sketch.DimensionMode;
         sketch.SetSketch(f.Sketch);status.Text=$"선택: {f.Name}. 수정 후 '피처 수정'으로 전체 재계산.";
     }
     void BuildTree()
@@ -120,10 +121,10 @@ sealed partial class ModelingWindow : Form
         {
             var f=document.Features[i];
             if(filter.Length>0&&!f.Name.Contains(filter,StringComparison.OrdinalIgnoreCase))continue;
-            var node=root.Nodes.Add($"{i+1}. {f.Name} [{f.Plane} / {f.Depth:G6} mm{(f.Midplane?" / 중간 평면":f.Reverse?" / 반대":"")}]");node.Tag=i;
+            var node=root.Nodes.Add($"{i+1}. {f.Name} [{f.Plane} / {(f.ThroughAll?"관통":$"{f.Depth:G6} mm")}{(f.Midplane?" / 중간 평면":f.Reverse?" / 반대":"")}]");node.Tag=i;
             node.Nodes.Add(f.Sketch.Kind=="circle"?"스케치 · 원":"스케치 · 닫힌 다각형").Tag=i;
         }
-        root.Expand();selected=-1;Text=$"디엠아이(DMI) CAD 0.3.3 — {document.Name}"+(dirty?" *":"");
+        root.Expand();selected=-1;Text=$"디엠아이(DMI) CAD 0.3.4 — {document.Name}"+(dirty?" *":"");
     }
     async Task<bool> Build(PartDocument next)
     {
@@ -159,7 +160,7 @@ sealed partial class ModelingWindow : Form
         var next=document.Copy();
         var feature=new PartFeature{Name=string.IsNullOrWhiteSpace(featureName.Text)?"피처 "+(next.Features.Count+1):featureName.Text,
             Operation=operation.SelectedIndex==0?"add":"cut",Plane=plane.SelectedIndex==0?"XY":plane.SelectedIndex==1?"XZ":"YZ",
-            Offset=(double)offset.Value,Depth=(double)depth.Value,Reverse=reverse.Checked,Midplane=midplane.Checked,Sketch=sketch.Sketch.Copy()};
+            Offset=(double)offset.Value,Depth=(double)depth.Value,Reverse=reverse.Checked,Midplane=midplane.Checked,ThroughAll=throughAll.Checked,Sketch=sketch.Sketch.Copy()};
         if(edit){feature.Id=next.Features[selected].Id;next.Features[selected]=feature;}else next.Features.Add(feature);
         return await Commit(next);
     }
@@ -237,12 +238,12 @@ sealed partial class ModelingWindow : Form
         var demo=new PartDocument{Name="예제 플레이트"};
         PartSketch Rect(double x,double y,double w,double h)=>new(){DimensionMode="rectangle",Points=new(){new[]{x,y},new[]{x+w,y},new[]{x+w,y+h},new[]{x,y+h}}};
         demo.Features.Add(new PartFeature{Name="기본 플레이트",Depth=10,Sketch=Rect(0,0,100,70)});
-        demo.Features.Add(new PartFeature{Name="관통 원 구멍",Operation="cut",Depth=10,Sketch=new PartSketch{Kind="circle",Center=[50,35],Radius=10}});
+        demo.Features.Add(new PartFeature{Name="관통 원 구멍",Operation="cut",ThroughAll=true,Depth=10,Sketch=new PartSketch{Kind="circle",Center=[50,35],Radius=10}});
         demo.Features.Add(new PartFeature{Name="상단 보스",Offset=10,Depth=15,Sketch=Rect(5,5,20,20)});
         await Commit(demo);
         return document.Features.Count==3&&document.Name=="예제 플레이트";
     }
     void Help()=>MessageBox.Show(this,
-        "디엠아이 CAD 0.3.3 — 시작하기\n\n1. 상단 스케치 탭 → 사각형/원/선 선택.\n2. 왼쪽 속성에서 좌표·치수 입력 → 스케치 치수 적용.\n3. 스케치 종료 또는 ✓ 확인으로 스케치를 유지합니다.\n4. 피처 탭 → 돌출 보스/베이스 또는 돌출 컷.\n5. 왼쪽 전체 깊이·평면·오프셋·중간 평면/방향 설정 → ✓ 확인.\n6. 피처 트리에서 우클릭 → 피처 정의 편집 / 스케치 편집.\n7. 변경은 확인으로 계산, 취소 또는 Esc로 미적용 입력 취소.\n\nCtrl+Z/Y: 피처 변경 취소/다시 실행. Ctrl+S: 프로젝트 저장.\n3D: 가운데 회전, Ctrl+가운데 이동, 휠 확대.\n일반 스케치 구속 솔버, 정밀 선택/측정, 도면·조립·금형·NC는 아직 없습니다.\nSOLIDWORKS 2020 기본 배치를 참고한 독립적인 디엠아이 UI이며 완전한 조작 호환은 아닙니다.",
+        "디엠아이 CAD 0.3.4 — 시작하기\n\n1. 상단 스케치 탭 → 사각형/원/선 선택.\n2. 왼쪽 속성에서 좌표·치수 입력 → 스케치 치수 적용.\n3. 스케치 종료 또는 ✓ 확인으로 스케치를 유지합니다.\n4. 피처 탭 → 돌출 보스/베이스 또는 돌출 컷.\n5. 왼쪽 깊이·평면·오프셋·방향 설정(컷은 관통 선택 가능) → ✓ 확인.\n6. 피처 트리에서 우클릭 → 피처 정의 편집 / 스케치 편집.\n7. 변경은 확인으로 계산, 취소 또는 Esc로 미적용 입력 취소.\n\nCtrl+Z/Y: 피처 변경 취소/다시 실행. Ctrl+S: 프로젝트 저장.\n3D: 가운데 회전, Ctrl+가운데 이동, 휠 확대.\n일반 스케치 구속 솔버, 정밀 선택/측정, 도면·조립·금형·NC는 아직 없습니다.\nSOLIDWORKS 2020 기본 배치를 참고한 독립적인 디엠아이 UI이며 완전한 조작 호환은 아닙니다.",
         "도움말 · F1",MessageBoxButtons.OK,MessageBoxIcon.Information);
 }

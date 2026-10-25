@@ -149,8 +149,51 @@ with TemporaryDirectory(prefix="dmi-midplane-") as folder:
         circle["midplane"]=invalid
         project.write_text(json.dumps(doc),encoding="utf-8")
         assert subprocess.run([engine,str(project),str(folder/"invalid.step")],capture_output=True,timeout=180).returncode!=0
-    doc["version"]=3
+    doc["version"]=4
     circle["midplane"]=True
     project.write_text(json.dumps(doc),encoding="utf-8")
     assert subprocess.run([engine,str(project),str(folder/"future.step")],capture_output=True,timeout=180).returncode!=0
 print("Midplane exact bounds/volume, reversed invariance, circle, cut, v2 and invalid input checks passed.")
+
+# Through-all follows upstream thickness instead of a hard-coded cut depth.
+with TemporaryDirectory(prefix="dmi-through-all-") as folder:
+    folder=Path(folder)
+    project=folder/"through.dmipart"
+    target=folder/"through.step"
+    def check_through(features, expected):
+        project.write_text(json.dumps({"version":3,"units":"mm","features":features}),encoding="utf-8")
+        subprocess.run([engine,str(project),str(target)],check=True,timeout=180)
+        reader=STEPControl_Reader()
+        assert reader.ReadFile(str(target))==IFSelect_RetDone and reader.TransferRoots()>0
+        props=GProp_GProps()
+        BRepGProp.VolumeProperties_s(reader.OneShape(),props)
+        assert abs(abs(props.Mass())-expected)<1e-4,(props.Mass(),expected)
+    for plane in ("XY","XZ","YZ"):
+        for thick in (10,25):
+            base=feature(polygon([[0,0],[20,0],[20,10],[0,10]]),depth=thick,plane=plane)
+            cut=feature({"kind":"circle","center":[5,5],"radius":2},depth=1,operation="cut",plane=plane)
+            cut["throughAll"]=True
+            check_through([base,cut],(200-math.pi*4)*thick)
+            cut["reverse"]=True
+            cut["offset"]=-thick if plane=="XZ" else thick
+            check_through([base,cut],(200-math.pi*4)*thick)
+    # Invalid combinations, missing stock, malformed flag and direction missing stock.
+    def reject_through(features):
+        project.write_text(json.dumps({"version":3,"units":"mm","features":features}),encoding="utf-8")
+        assert subprocess.run([engine,str(project),str(folder/"invalid.step")],capture_output=True,timeout=180).returncode!=0
+    base=feature(polygon([[0,0],[20,0],[20,10],[0,10]]))
+    cut=feature({"kind":"circle","center":[5,5],"radius":2},depth=1,operation="cut")
+    cut["throughAll"]=True
+    reject_through([cut])
+    reject_through([base,dict(cut,operation="add")])
+    reject_through([base,dict(cut,midplane=True)])
+    reject_through([base,dict(cut,throughAll="true")])
+    reject_through([base,dict(cut,offset=10)]) # positive direction points away
+    # Keep original input and persist/reopen the complete feature history.
+    original={"version":3,"units":"mm","features":[base,cut]}
+    project.write_text(json.dumps(original),encoding="utf-8")
+    original_bytes=project.read_bytes()
+    reopened=json.loads(project.read_text(encoding="utf-8"))
+    check_through(reopened["features"],(200-math.pi*4)*10)
+    assert project.read_bytes()==original_bytes
+print("Through-all three planes, both directions, upstream edits, disk reopen and rejection checks passed.")

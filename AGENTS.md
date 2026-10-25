@@ -156,3 +156,7 @@ CI additionally exercises sketch completion, property pane activation, feature c
 0.3.2 added Reverse for principal-plane extrusion/cut. 0.3.3 adds Midplane: total Depth extends half in each direction around the offset plane. Reverse is retained but irrelevant/disabled while Midplane is enabled. Native UI confirm/cancel/undo/redo and exact STEP bounds/volume tests cover these settings.
 
 0.3.3 saves project version 2; readers accept v1 and v2 and upgrade v1 in memory. Earlier applications reject v2 instead of silently ignoring new geometry semantics. Preserve originals until explicit save. Do not revert the version to v1. The standalone geometry engine accepts v1/v2. New behavior is documented in docs/MODELING-0.3.3.ko.md. No live geometry preview or general constraint/face selection was added by these modes.
+
+## 0.3.4 through-all and 1.0 acceptance
+ThroughAll is a one-direction cut from the sketch plane to beyond the preceding exact solid bounds. It is not bidirectional. Reject additive/midplane/missing-solid combinations. Recompute after upstream edits. Numeric plane offset is not a face-linked reference. Projects now save v3 and read v1/v2/v3; never downgrade new files to older versions.
+docs/ACCEPTANCE-1.0.ko.md records the user's required workflow and remaining face selection/constraints gaps. Do not call this incremental build 1.0 or claim the whole acceptance scenario passed while face-attached sketching is absent.

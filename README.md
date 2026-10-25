@@ -1,6 +1,6 @@
-> 최신 개발 버전: **0.3.3** — [중간 평면 돌출·컷 사용법](docs/MODELING-0.3.3.ko.md)
+> 최신 개발 버전: **0.3.4** — [관통 컷 사용법](docs/MODELING-0.3.4.ko.md) · [1.0 합격 기준](docs/ACCEPTANCE-1.0.ko.md)
 
-# 디엠아이(DMI) CAD 0.3.3
+# 디엠아이(DMI) CAD 0.3.4
 
 ![DMI](https://static.wixstatic.com/media/b61e9b_4c68109deaca422494f28c350edb38de~mv2.png)
 
@@ -32,7 +32,7 @@ PFM·Cimatron·CATIA·SOLIDWORKS·DWG 원본 읽기도 미지원입니다.
 
 ## Windows 설치 파일
 [Actions](https://github.com/dmi20190118-tech/dmi-cad/actions)의 성공한 0.3 빌드에서 Artifacts → DMI-CAD-Windows-x64를 받으세요.
-ZIP을 풀고 DMI-CAD-Setup-0.3.3.exe를 실행합니다. Windows 10/11 x64, .NET과 CAD 엔진 포함.
+ZIP을 풀고 DMI-CAD-Setup-0.3.4.exe를 실행합니다. Windows 10/11 x64, .NET과 CAD 엔진 포함.
 코드 서명이 없는 초기 제품이며 실제 고객 모델·현장 작업에는 추가 검증이 필요합니다.
 
 ## 검증

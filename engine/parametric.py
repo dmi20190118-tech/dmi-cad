@@ -2,6 +2,8 @@
 import json
 import math
 from pathlib import Path
+from OCP.Bnd import Bnd_Box
+from OCP.BRepBndLib import BRepBndLib
 from OCP.gp import gp_Pnt, gp_Dir, gp_Ax2, gp_Circ, gp_Vec, gp_Trsf
 from OCP.BRepBuilderAPI import BRepBuilderAPI_MakePolygon, BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire, BRepBuilderAPI_MakeFace, BRepBuilderAPI_Transform
 from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
@@ -66,7 +68,7 @@ def build_part(path):
     if Path(path).stat().st_size > 1048576:
         raise ValueError("Part project exceeds 1 MB.")
     doc = json.loads(Path(path).read_text(encoding="utf-8-sig"))
-    if doc.get("version") not in (1, 2) or doc.get("units") != "mm":
+    if doc.get("version") not in (1, 2, 3) or doc.get("units") != "mm":
         raise ValueError("Unsupported part project version or units.")
     features = doc.get("features", [])
     if not 1 <= len(features) <= 100:
@@ -99,6 +101,20 @@ def build_part(path):
             midplane = feature.get("midplane", False)
             if not isinstance(midplane, bool):
                 raise ValueError("Midplane must be boolean.")
+            through_all = feature.get("throughAll", False)
+            if not isinstance(through_all, bool):
+                raise ValueError("Through-all must be boolean.")
+            if through_all:
+                if shape is None or feature.get("operation") != "cut" or midplane:
+                    raise ValueError("Through-all requires an existing solid and a one-direction cut.")
+                bounds = Bnd_Box()
+                BRepBndLib.Add_s(shape, bounds)
+                low_x, low_y, low_z, high_x, high_y, high_z = bounds.Get()
+                origin = map_point(0, 0)
+                far = max(
+                    (x-origin.X())*direction.X()+(y-origin.Y())*direction.Y()+(z-origin.Z())*direction.Z()
+                    for x in (low_x,high_x) for y in (low_y,high_y) for z in (low_z,high_z))
+                depth = max(0,far)+1.0
             sketch = feature.get("sketch", {})
             kind = sketch.get("kind")
             if kind == "circle":
