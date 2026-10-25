@@ -2,7 +2,7 @@
 
 ## 확인한 자료와 범위
 - [SOLIDWORKS 2020 — Sketching with Planes](https://help.solidworks.com/2020/english/solidworks/sldworks/t_Sketching_with_Planes.htm): 검색에 색인된 공식 본문에서 기준면 선택, 스케치 도구, 치수, 스케치 종료/피처 생성 순서를 확인했습니다. 직접 열기는 동적 도움말의 공통 화면만 반환했습니다.
-- [공식 2020–2021 Fundamentals PDF](https://www.solidworks.com/sites/default/files/2020-05/Fundamentals3DDesign-SIM-ENG-SV.pdf): PDF의 기본 모델링 설명과 그림을 확인했습니다. 인쇄쪽70~71(파일83~84번째 쪽)은 첫 돌출 이후 제품의 평면 면을 다음 스케치 평면으로 사용하는 예를 다룹니다.
+- [공식 2020–2021 Fundamentals PDF](https://www.solidworks.com/sites/default/files/2020-05/Fundamentals3DDesign-SIM-ENG-SV.pdf): PDF의 기본 모델링 본문과 면 스케치 절차를 확인했습니다. 인쇄쪽70~71(파일83~84번째 쪽)은 첫 돌출 이후 제품의 평면 면을 다음 스케치 평면으로 사용하는 예를 다룹니다.
 - [공식 Sketching and Dimensioning the Boss](https://help.solidworks.com/2024/English/swconntutorial/t_tut_lesson1_boss_adding.htm): 색인된 본문에서 제품 면 사전 선택, 보스 명령, 수직 보기, 원과 치수 입력 순서를 확인했습니다. 2024 자료이므로 2020의 정확한 화면 배치 검증으로 사용하지 않습니다.
 - [공식 면 위 컷 시연 페이지](https://help.solidworks.com/2023/english/SolidWorks/sldworks/c_video_instant3d_sketch_all_on_face.htm), [2020 Rapid Sketch](https://help.solidworks.com/2020/English/SolidWorks/sldworks/t_Using_RapidSketch.htm): 시연 페이지와 설명을 찾았지만 영상 재생 프레임/자막은 확인하지 못했습니다. 동영상을 직접 보고 검증했다고 주장하지 않습니다.
 
@@ -32,3 +32,12 @@
 ## 검사
 Windows CI에서 안내바의 실제 버튼 동작, 선택 면/평면 위치 표시, 닫힌 스케치의 다음 동작, 보스/컷 확인 단계, 정밀 부피·저장 복원·실행 취소를 검사합니다.
 자동 검사는 프로그램 내 마우스/버튼 이벤트를 호출합니다. 사용자 PC의 실제 마우스·DPI·접근성과 초보 사용자 따라하기 검증은 별도입니다.
+
+## 완료된 실행 검증
+- [Windows 빌드 40223593993](https://github.com/dmi20190118-tech/dmi-cad/actions/runs/40223593993): 전체 성공.
+- 검증 코드: da6a07d29c5e48a4b7b692a0757e9ae1e4890d3d.
+- 안내바의 기준면 선택/스케치 시작/도형 선택/보스/컷 버튼을 실제 프로그램에서 호출해 단계 연결을 확인했습니다. 원/사각형 마우스 입력, 정확한 부피, 평면 연결, 저장 재읽기, 실행 취소/다시 실행 및 기존 회전·필렛 검사도 통과했습니다.
+- [선택한 면 안내](../preview/selected-face-1.0-preview3.png), [스케치 및 다음 동작 안내](../preview/core-sketch-1.0-preview3.png).
+- 선택 면 번호·위치와 시작 버튼, 스케치 완료 뒤 쌓기/파기 버튼, 불필요한 속성 입력 숨김을 실제 캡처에서 확인했습니다.
+- [Windows x64 설치 ZIP](https://github.com/dmi20190118-tech/dmi-cad/actions/runs/40223593993/artifacts/12609924546): DMI-CAD-Setup-1.0-preview3.exe 포함. GitHub 로그인이 필요할 수 있으며 30일 보존됩니다.
+- 실제 사용자 마우스·여러 DPI·설치 후 환경·초보 사용자 따라하기 검사는 아직 수행하지 않았습니다. 공식 영상 재생 장면과 SOLIDWORKS 실행본을 대조 검증한 결과도 아닙니다.
