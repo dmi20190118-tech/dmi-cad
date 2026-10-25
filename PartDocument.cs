@@ -20,12 +20,13 @@ public sealed class PartFeature
     public double Offset { get; set; }
     public double Depth { get; set; } = 10;
     public bool Reverse { get; set; }
+    public bool Midplane { get; set; }
     public PartSketch Sketch { get; set; } = new();
 }
 public sealed class PartDocument
 {
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
-    public int Version { get; set; } = 1;
+    public int Version { get; set; } = 2;
     public string Units { get; set; } = "mm";
     public string Name { get; set; } = "부품1";
     public int Revision { get; set; }
@@ -35,7 +36,7 @@ public sealed class PartDocument
     {
         if(text.Length>1048576)throw new InvalidDataException("프로젝트 제한은 1 MB입니다.");
         var doc=JsonSerializer.Deserialize<PartDocument>(text,Json)??throw new InvalidDataException("프로젝트가 비어 있습니다.");
-        if(doc.Version!=1||doc.Units!="mm"||doc.Features==null||doc.Features.Count>100||string.IsNullOrWhiteSpace(doc.Name)||doc.Name.Length>200)
+        if((doc.Version!=1&&doc.Version!=2)||doc.Units!="mm"||doc.Features==null||doc.Features.Count>100||string.IsNullOrWhiteSpace(doc.Name)||doc.Name.Length>200)
             throw new InvalidDataException("지원하지 않는 프로젝트 버전·단위·구조입니다.");
         var ids=new HashSet<string>();
         bool Finite(double v)=>double.IsFinite(v)&&Math.Abs(v)<=1000000;
@@ -58,6 +59,7 @@ public sealed class PartDocument
             }
             else throw new InvalidDataException("지원하지 않는 스케치입니다.");
         }
+        doc.Version=2; // Upgrade on read; old applications must reject the saved v2 document.
         return doc;
     }
 }
@@ -74,6 +76,12 @@ static class PartChecks
         if(PartDocument.Parse(JsonSerializer.Serialize(doc,PartDocument.Json)).Features[0].Id!=doc.Features[0].Id)throw new Exception("Feature identity changed.");
         copy.Features[0].Reverse=true;
         if(!copy.Copy().Features[0].Reverse||doc.Features[0].Reverse)throw new Exception("Extrusion direction persistence failed.");
+        copy.Features[0].Midplane=true;
+        if(!copy.Copy().Features[0].Midplane||doc.Features[0].Midplane)throw new Exception("Midplane persistence failed.");
+        string legacy=JsonSerializer.Serialize(doc,PartDocument.Json).Replace("\"version\": 2","\"version\": 1");
+        if(PartDocument.Parse(legacy).Version!=2)throw new Exception("Legacy project migration failed.");
+        var future=doc.Copy();future.Version=3;
+        try {future.Copy();throw new Exception("Future project version accepted.");}catch(InvalidDataException){}
         doc.Features[0].Depth=-1;
         try {doc.Copy();throw new Exception("Negative depth accepted.");}catch(InvalidDataException){}
     }

@@ -150,3 +150,9 @@ ModelingWindow is now partial. ModelingShell.cs owns the native menu, quick tool
 Do not revert to a flat wall of large buttons or permanently expose all property fields beside the tree. Do not describe unavailable fillet/drafting/assembly/mold/CAM as working. Do not claim pixel-identical UI or full SOLIDWORKS behavior.
 
 CI additionally exercises sketch completion, property pane activation, feature confirmation, cancellation preserving committed model, undo/redo and feature filtering in the real Windows GUI. It captures model and property screens. This is not exhaustive manual mouse/accessibility/DPI testing or a side-by-side audit of a running SOLIDWORKS installation. Documentation: docs/INTERFACE-0.3.1.ko.md.
+
+## 0.3.2–0.3.3 extrusion modes and project compatibility
+
+0.3.2 added Reverse for principal-plane extrusion/cut. 0.3.3 adds Midplane: total Depth extends half in each direction around the offset plane. Reverse is retained but irrelevant/disabled while Midplane is enabled. Native UI confirm/cancel/undo/redo and exact STEP bounds/volume tests cover these settings.
+
+0.3.3 saves project version 2; readers accept v1 and v2 and upgrade v1 in memory. Earlier applications reject v2 instead of silently ignoring new geometry semantics. Preserve originals until explicit save. Do not revert the version to v1. The standalone geometry engine accepts v1/v2. New behavior is documented in docs/MODELING-0.3.3.ko.md. No live geometry preview or general constraint/face selection was added by these modes.

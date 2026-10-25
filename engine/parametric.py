@@ -2,8 +2,8 @@
 import json
 import math
 from pathlib import Path
-from OCP.gp import gp_Pnt, gp_Dir, gp_Ax2, gp_Circ, gp_Vec
-from OCP.BRepBuilderAPI import BRepBuilderAPI_MakePolygon, BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire, BRepBuilderAPI_MakeFace
+from OCP.gp import gp_Pnt, gp_Dir, gp_Ax2, gp_Circ, gp_Vec, gp_Trsf
+from OCP.BRepBuilderAPI import BRepBuilderAPI_MakePolygon, BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire, BRepBuilderAPI_MakeFace, BRepBuilderAPI_Transform
 from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Fuse, BRepAlgoAPI_Cut
 from OCP.BRepCheck import BRepCheck_Analyzer
@@ -66,7 +66,7 @@ def build_part(path):
     if Path(path).stat().st_size > 1048576:
         raise ValueError("Part project exceeds 1 MB.")
     doc = json.loads(Path(path).read_text(encoding="utf-8-sig"))
-    if doc.get("version") != 1 or doc.get("units") != "mm":
+    if doc.get("version") not in (1, 2) or doc.get("units") != "mm":
         raise ValueError("Unsupported part project version or units.")
     features = doc.get("features", [])
     if not 1 <= len(features) <= 100:
@@ -96,6 +96,9 @@ def build_part(path):
                 raise ValueError("Reverse direction must be boolean.")
             if reverse:
                 direction = direction.Reversed()
+            midplane = feature.get("midplane", False)
+            if not isinstance(midplane, bool):
+                raise ValueError("Midplane must be boolean.")
             sketch = feature.get("sketch", {})
             kind = sketch.get("kind")
             if kind == "circle":
@@ -114,7 +117,12 @@ def build_part(path):
             face_builder = BRepBuilderAPI_MakeFace(wire, True)
             if not face_builder.IsDone():
                 raise ValueError("Sketch could not form a planar face.")
-            prism = BRepPrimAPI_MakePrism(face_builder.Face(), gp_Vec(direction).Multiplied(depth), True).Shape()
+            profile = face_builder.Face()
+            if midplane:
+                shift = gp_Trsf()
+                shift.SetTranslation(gp_Vec(direction).Multiplied(-depth/2))
+                profile = BRepBuilderAPI_Transform(profile, shift, True).Shape()
+            prism = BRepPrimAPI_MakePrism(profile, gp_Vec(direction).Multiplied(depth), True).Shape()
             if not BRepCheck_Analyzer(prism).IsValid():
                 raise ValueError("Extrusion produced an invalid solid.")
             operation = feature.get("operation")

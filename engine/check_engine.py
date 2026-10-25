@@ -119,3 +119,38 @@ with TemporaryDirectory(prefix="dmi-direction-") as folder:
     project.write_text(json.dumps({"version":1,"units":"mm","features":[base,cut]}),encoding="utf-8")
     assert subprocess.run([engine,str(project),str(folder/"invalid.step")],capture_output=True,timeout=180).returncode!=0
 print("Reverse extrusion bounds, three planes, reverse cut and invalid direction checks passed.")
+
+# Midplane depth is total thickness; offset is the symmetry plane.
+with TemporaryDirectory(prefix="dmi-midplane-") as folder:
+    folder=Path(folder)
+    project=folder/"midplane.dmipart"
+    target=folder/"midplane.step"
+    for plane,bounds in [
+        ("XY",(0,0,-2,20,10,8)),
+        ("XZ",(0,-2,0,20,8,10)),
+        ("YZ",(-2,0,0,8,20,10))]:
+        for reverse in (False,True):
+            f=feature(polygon([[0,0],[20,0],[20,10],[0,10]]),depth=10,offset=3,plane=plane)
+            f.update(midplane=True,reverse=reverse)
+            check_direction([f],2000,bounds)
+    base=feature(polygon([[0,0],[20,0],[20,10],[0,10]]))
+    cut=feature({"kind":"circle","center":[5,5],"radius":2},depth=20,operation="cut",offset=5)
+    cut["midplane"]=True
+    check_direction([base,cut],2000-math.pi*40,(0,0,0,20,10,10))
+    # A centered circular base verifies non-polygon profile translation.
+    circle=feature({"kind":"circle","center":[0,0],"radius":2},depth=10,offset=3)
+    circle["midplane"]=True
+    check_direction([circle],math.pi*40,(-2,-2,-2,2,2,8))
+    # New version roundtrip through the packaged engine.
+    doc={"version":2,"units":"mm","features":[circle]}
+    project.write_text(json.dumps(doc),encoding="utf-8")
+    subprocess.run([engine,str(project),str(target)],check=True,timeout=180)
+    for invalid in ("true",1,None):
+        circle["midplane"]=invalid
+        project.write_text(json.dumps(doc),encoding="utf-8")
+        assert subprocess.run([engine,str(project),str(folder/"invalid.step")],capture_output=True,timeout=180).returncode!=0
+    doc["version"]=3
+    circle["midplane"]=True
+    project.write_text(json.dumps(doc),encoding="utf-8")
+    assert subprocess.run([engine,str(project),str(folder/"future.step")],capture_output=True,timeout=180).returncode!=0
+print("Midplane exact bounds/volume, reversed invariance, circle, cut, v2 and invalid input checks passed.")
