@@ -11,8 +11,8 @@ sealed class ModelingWindow : Form
     readonly TabControl tabs=new(){Dock=DockStyle.Fill};
     readonly TextBox report=new(){Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical,Dock=DockStyle.Fill};
     readonly ToolStripStatusLabel status=new("스케치를 그리거나 치수로 정의하세요.");
-    readonly NumericUpDown u=N(0,-1000000,1000000),v=N(0,-1000000,1000000),width=N(100,.001m,10000),
-        height=N(70,.001m,10000),radius=N(5,.001m,10000),depth=N(10,.001m,10000),
+    readonly NumericUpDown u=N(0,-1000000,1000000),v=N(0,-1000000,1000000),width=N(100,.001m,2000000),
+        height=N(70,.001m,2000000),radius=N(5,.001m,1000000),depth=N(10,.001m,10000),
         offset=N(0,-1000000,1000000),vertex=N(1,1,500),grid=N(1,.001m,1000);
     readonly TextBox featureName=new(){Text="돌출 1",MaxLength=200,Dock=DockStyle.Fill};
     readonly ComboBox plane=new(){DropDownStyle=ComboBoxStyle.DropDownList,Dock=DockStyle.Fill};
@@ -116,11 +116,11 @@ sealed class ModelingWindow : Form
     {
         if(!sketch.Closed)return;sync=true;
         var s=sketch.Sketch;
-        if(s.Kind=="circle"){u.Value=(decimal)s.Center[0];v.Value=(decimal)s.Center[1];radius.Value=(decimal)Math.Clamp(s.Radius,.001,10000);dimensionMode="circle";}
+        if(s.Kind=="circle"){u.Value=(decimal)s.Center[0];v.Value=(decimal)s.Center[1];radius.Value=(decimal)Math.Clamp(s.Radius,.001,1000000);dimensionMode="circle";}
         else if(s.Points.Count>0)
         {
             double minU=s.Points.Min(p=>p[0]),minV=s.Points.Min(p=>p[1]),w=s.Points.Max(p=>p[0])-minU,h=s.Points.Max(p=>p[1])-minV;
-            u.Value=(decimal)minU;v.Value=(decimal)minV;width.Value=(decimal)Math.Clamp(w,.001,10000);height.Value=(decimal)Math.Clamp(h,.001,10000);
+            u.Value=(decimal)minU;v.Value=(decimal)minV;width.Value=(decimal)Math.Clamp(w,.001,2000000);height.Value=(decimal)Math.Clamp(h,.001,2000000);
         }
         vertex.Value=1;sync=false;
     }

@@ -10,7 +10,7 @@ static class Program
     {
         if (args.Length > 0 && args[0] == "--self-test")
         {
-            try { ImportChecks.Run(); SheetChecks.Run(); PartChecks.Run(); Environment.ExitCode = 0; }
+            try { ImportChecks.Run(); SheetChecks.Run(); PartChecks.Run(); RasterChecks.Run(); Environment.ExitCode = 0; }
             catch (Exception ex) { if (args.Length > 1) File.WriteAllText(args[1],ex.ToString()); Environment.ExitCode = 1; }
             return;
         }
@@ -330,21 +330,20 @@ sealed class Viewport : Control
                 return new PointF(Width/2f + pan.X + (float)p.x*importedScale, Height/2f + pan.Y - (float)p.y*importedScale);
             }
             using var edge = new Pen(Color.FromArgb(49,77,103), .7f);
-            var ordered = geometry.Triangles.Select(t => new { Vertices = t, Depth = t.Average(p => { var q = p - geometry.Center; return Rotate(q.X,q.Y,q.Z).z; }) }).OrderByDescending(t => t.Depth);
-            foreach (var triangle in ordered)
+            if (!Wire)
             {
-                var polygon = triangle.Vertices.Select(Project).ToArray();
-                if (!Wire)
+                float ratio = Math.Min(1f, 1600f / Math.Max(Width, Height));
+                int rasterWidth = Math.Max(1, (int)(Width * ratio));
+                int rasterHeight = Math.Max(1, (int)(Height * ratio));
+                using var frame = MeshRaster.Render(geometry, rasterWidth, rasterHeight, point =>
                 {
-                    var normal = System.Numerics.Vector3.Cross(triangle.Vertices[1]-triangle.Vertices[0],triangle.Vertices[2]-triangle.Vertices[0]);
-                    if (normal.LengthSquared() > 0) normal = System.Numerics.Vector3.Normalize(normal);
-                    var n = Rotate(normal.X,normal.Y,normal.Z);
-                    int shade = (int)(130 + 90 * Math.Abs(n.z));
-                    using var fill = new SolidBrush(Color.FromArgb(shade-30,shade-10,Math.Min(255,shade+15)));
-                    g.FillPolygon(fill,polygon);
-                }
-                else g.DrawPolygon(edge,polygon);
+                    var xy = Project(point);
+                    var q = point - geometry.Center;
+                    return (xy.X * ratio, xy.Y * ratio, Rotate(q.X,q.Y,q.Z).z);
+                });
+                g.DrawImage(frame.Image, new Rectangle(0,0,Width,Height));
             }
+            else foreach (var triangle in geometry.Triangles) g.DrawPolygon(edge,triangle.Select(Project).ToArray());
             foreach (var line in geometry.Lines) if (line.Length >= 2) g.DrawLines(edge,line.Select(Project).ToArray());
         }
         using var text = new SolidBrush(Color.FromArgb(76,91,110));

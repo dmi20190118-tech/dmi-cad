@@ -42,12 +42,12 @@ public sealed class PartDocument
         {
             if(f==null||!ids.Add(f.Id)||string.IsNullOrWhiteSpace(f.Id)||f.Sketch==null||f.Name==null||f.Name.Length>200||
                !(f.Operation is "add" or "cut")||!(f.Plane is "XY" or "XZ" or "YZ")||
-               !Finite(f.Offset)||!Finite(f.Depth)||f.Depth<=0||f.Depth>10000)
+               !Finite(f.Offset)||!Finite(f.Depth)||f.Depth<.001||f.Depth>10000)
                 throw new InvalidDataException("피처 이름·평면·치수·식별자를 확인하세요.");
             var s=f.Sketch;
             if(s.Kind=="circle")
             {
-                if(s.Center==null||s.Center.Length!=2||s.Center.Any(v=>!Finite(v))||!Finite(s.Radius)||s.Radius<=0)
+                if(s.Center==null||s.Center.Length!=2||s.Center.Any(v=>!Finite(v))||!Finite(s.Radius)||s.Radius<.001)
                     throw new InvalidDataException("원 중심과 반지름을 확인하세요.");
             }
             else if(s.Kind=="polygon")
