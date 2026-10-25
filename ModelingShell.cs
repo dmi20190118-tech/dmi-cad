@@ -159,7 +159,8 @@ sealed partial class ModelingWindow
         }
         plane.Items.AddRange(new object[]{"XY → +Z","XZ → −Y","YZ → +X"});plane.SelectedIndex=0;
         operation.Items.AddRange(new object[]{"재료 추가","재료 제거"});operation.SelectedIndex=0;
-        Row("피처 이름",featureName);Row("작업",operation);Row("스케치 평면",plane);Row("평면 오프셋 mm",offset);
+        Row("피처 이름",featureName);Row("작업",operation);Row("스케치 평면",plane);Row("평면 오프셋 mm",offset);Row("평면 연결",planeLink);Row("참조 돌출",planeLinkInfo);
+        planeLink.CheckedChanged+=(_,_)=>RefreshPlaneLink();RefreshPlaneLink();
         Row("컷 종료 조건",throughAll);Row("전체 깊이 mm",depth);Row("돌출 방식",midplane);Row("돌출 방향",reverse);
         void RefreshExtrusionMode()
         {
@@ -205,7 +206,7 @@ sealed partial class ModelingWindow
         }
         split.Panel2.Controls.Add(tabs);split.Panel2.Controls.Add(taskButtons);
         var bottom=new StatusStrip{BackColor=Color.FromArgb(240,243,246)};
-        status.Spring=true;status.TextAlign=ContentAlignment.MiddleLeft;bottom.Items.Add(status);bottom.Items.Add("MMGS · mm | 단일 솔리드 | 피처 프로젝트 v3");
+        status.Spring=true;status.TextAlign=ContentAlignment.MiddleLeft;bottom.Items.Add(status);bottom.Items.Add("MMGS · mm | 단일 솔리드 | 피처 프로젝트 v4");
         var context=new ContextMenuStrip();
         var editFeature=new ToolStripMenuItem("피처 정의 편집");editFeature.Click+=(_,_)=>OpenFeatureProperties(true);
         var editSketch=new ToolStripMenuItem("스케치 편집");editSketch.Click+=(_,_)=>{if(selected>=0){editingExisting=true;OpenSketchProperties();tabs.SelectedIndex=0;}};
@@ -262,7 +263,7 @@ sealed partial class ModelingWindow
         if(reverse.Enabled)throw new Exception("Midplane did not disable irrelevant direction control.");
         if(managerTabs.SelectedIndex!=1)throw new Exception("Property manager did not activate.");
         await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));Directory.CreateDirectory("preview");preview.Save(Path.Combine("preview","property-manager-0.4.0.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));Directory.CreateDirectory("preview");preview.Save(Path.Combine("preview","property-manager-0.4.1.png"),System.Drawing.Imaging.ImageFormat.Png);}
         await ConfirmProperty();
         if(document.Features.Count!=before+1||!document.Features[^1].Reverse||!document.Copy().Features[^1].Reverse||!document.Copy().Features[^1].Midplane||managerTabs.SelectedIndex!=0)throw new Exception("Property confirmation failed.");
         tree.SelectedNode=tree.Nodes[0].Nodes.Cast<TreeNode>().First(n=>n.Tag is int i&&i==0);string snapshot=JsonSerializer.Serialize(document,PartDocument.Json);
@@ -279,7 +280,7 @@ sealed partial class ModelingWindow
         OpenFeatureProperties(true);throughAll.Checked=true;offset.Value=0;reverse.Checked=false;
         if(depth.Enabled||midplane.Enabled)throw new Exception("Through-all left incompatible inputs enabled.");
         await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-0.4.0.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-0.4.1.png"),System.Drawing.Imaging.ImageFormat.Png);}
         await ConfirmProperty();
         if(!document.Features[1].ThroughAll)throw new Exception("Through-all edit was not committed.");
         tree.SelectedNode=tree.Nodes[0].Nodes.Cast<TreeNode>().First(n=>n.Tag is int i&&i==0);
@@ -287,7 +288,7 @@ sealed partial class ModelingWindow
         string saved=Path.Combine(temp,"workflow-reopen.dmipart");
         await File.WriteAllTextAsync(saved,JsonSerializer.Serialize(document.Copy(),PartDocument.Json));
         var reopened=PartDocument.Parse(await File.ReadAllTextAsync(saved));
-        if(!reopened.Features[1].ThroughAll||reopened.Features[1].Reverse||reopened.Features[0].Depth!=15||reopened.Version!=3)
+        if(!reopened.Features[1].ThroughAll||reopened.Features[1].Reverse||reopened.Features[0].Depth!=15||reopened.Version!=4)
             throw new Exception("Disk reopen lost geometry settings.");
         if(!await Build(reopened))throw new Exception("Reopened model regeneration failed.");
         await Undo(false);await Undo(false);

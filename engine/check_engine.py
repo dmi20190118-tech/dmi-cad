@@ -149,7 +149,7 @@ with TemporaryDirectory(prefix="dmi-midplane-") as folder:
         circle["midplane"]=invalid
         project.write_text(json.dumps(doc),encoding="utf-8")
         assert subprocess.run([engine,str(project),str(folder/"invalid.step")],capture_output=True,timeout=180).returncode!=0
-    doc["version"]=4
+    doc["version"]=5
     circle["midplane"]=True
     project.write_text(json.dumps(doc),encoding="utf-8")
     assert subprocess.run([engine,str(project),str(folder/"future.step")],capture_output=True,timeout=180).returncode!=0
@@ -250,3 +250,42 @@ with TemporaryDirectory(prefix="dmi-pickmesh-") as folder:
     assert len(set(row[0] for row in data["renderTriangles"]))==3
     assert len(data["sketchPlanes"])==2, "Curved wall must occlude without being a sketch plane."
 print("Face-tagged display mesh and curved occlusion metadata checks passed.")
+
+# Stable feature-end plane references follow upstream depth and chained references.
+with TemporaryDirectory(prefix="dmi-plane-link-") as folder:
+    folder=Path(folder)
+    project=folder/"linked.dmipart"
+    target=folder/"linked.step"
+    def run_link(features):
+        project.write_text(json.dumps({"version":4,"units":"mm","features":features}),encoding="utf-8")
+        subprocess.run([engine,str(project),str(target)],check=True,timeout=180)
+        return json.loads(Path(str(target)+".metrics.json").read_text())
+    for plane in ("XY","XZ","YZ"):
+        for thick in (10,25):
+            base=feature(polygon([[0,0],[20,0],[20,10],[0,10]]),depth=thick,plane=plane)
+            base["id"]="plate"
+            cut=feature({"kind":"circle","center":[5,5],"radius":2},depth=1,operation="cut",plane=plane,offset=123)
+            cut.update(id="hole",planeSourceId="plate",reverse=True,throughAll=True)
+            m=run_link([base,cut])
+            assert abs(m["volumeMm3"]-(200-math.pi*4)*thick)<1e-5
+            assert abs(m["history"][1]["planeOffset"]-(-thick if plane=="XZ" else thick))<1e-8
+    base=feature(polygon([[0,0],[20,0],[20,10],[0,10]]),depth=10)
+    base["id"]="plate"
+    boss=feature(polygon([[0,0],[5,0],[5,5],[0,5]]),depth=5,offset=999)
+    boss.update(id="boss",planeSourceId="plate")
+    tip=feature(polygon([[0,0],[2,0],[2,2],[0,2]]),depth=2,offset=999)
+    tip.update(id="tip",planeSourceId="boss")
+    m=run_link([base,boss,tip])
+    assert abs(m["volumeMm3"]-2133)<1e-5 and m["history"][2]["planeOffset"]==15
+    base["depth"]=20
+    m=run_link([base,boss,tip])
+    assert abs(m["volumeMm3"]-4133)<1e-5 and m["history"][2]["planeOffset"]==25
+    def reject_link(features):
+        project.write_text(json.dumps({"version":4,"units":"mm","features":features}),encoding="utf-8")
+        assert subprocess.run([engine,str(project),str(folder/"invalid.step")],capture_output=True,timeout=180).returncode!=0
+    reject_link([boss]) # source removed
+    reject_link([dict(base,planeSourceId="plate")]) # self cycle
+    reject_link([base,dict(boss,planeSourceId="tip"),tip]) # forward/cyclic
+    reject_link([dict(base,midplane=True),boss]) # unsupported source mode
+    reject_link([base,dict(boss,plane="XZ")]) # mismatched plane
+print("End-plane links, depth edits, chained references and broken reference rejection passed.")

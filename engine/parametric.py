@@ -104,17 +104,26 @@ def build_part(path):
     if Path(path).stat().st_size > 1048576:
         raise ValueError("Part project exceeds 1 MB.")
     doc = json.loads(Path(path).read_text(encoding="utf-8-sig"))
-    if doc.get("version") not in (1, 2, 3) or doc.get("units") != "mm":
+    if doc.get("version") not in (1, 2, 3, 4) or doc.get("units") != "mm":
         raise ValueError("Unsupported part project version or units.")
     features = doc.get("features", [])
     if not 1 <= len(features) <= 100:
         raise ValueError("Part requires 1 to 100 features.")
     shape = None
     history = []
+    end_planes = {}
+    seen_ids = set()
     for index, feature in enumerate(features):
         try:
             plane = feature.get("plane", "XY")
             offset = number(feature.get("offset", 0), "Plane offset")
+            source_id = feature.get("planeSourceId", "")
+            if not isinstance(source_id, str):
+                raise ValueError("Plane source ID must be a string.")
+            if source_id:
+                if source_id not in end_planes or end_planes[source_id]["plane"] != plane:
+                    raise ValueError("Broken sketch plane reference: source must be an earlier one-direction additive feature in the same principal plane.")
+                offset = number(end_planes[source_id]["offset"], "Referenced plane offset")
             depth = number(feature.get("depth"), "Depth", True)
             if depth > 10000:
                 raise ValueError("Depth exceeds 10000 mm.")
@@ -174,6 +183,7 @@ def build_part(path):
                 shift = gp_Trsf()
                 shift.SetTranslation(gp_Vec(direction).Multiplied(-depth/2))
                 profile = BRepBuilderAPI_Transform(profile, shift, True).Shape()
+            feature_depth = depth
             prism = BRepPrimAPI_MakePrism(profile, gp_Vec(direction).Multiplied(depth), True).Shape()
             if not BRepCheck_Analyzer(prism).IsValid():
                 raise ValueError("Extrusion produced an invalid solid.")
@@ -202,8 +212,16 @@ def build_part(path):
                 raise ValueError("Feature does not change the solid. Check plane offset, direction and intersection.")
             if operation == "cut" and current >= previous-tolerance:
                 raise ValueError("Cut did not remove material.")
+            feature_id = feature.get("id", "")
+            if not isinstance(feature_id, str) or (feature_id and feature_id in seen_ids):
+                raise ValueError("Feature identity is invalid or duplicated.")
+            if feature_id:
+                seen_ids.add(feature_id)
+                if operation == "add" and not midplane:
+                    axis_direction = direction.Y() if plane == "XZ" else direction.Z() if plane == "XY" else direction.X()
+                    end_planes[feature_id] = {"plane":plane,"offset":offset+axis_direction*feature_depth}
             shape = candidate
-            history.append({"index":index,"name":str(feature.get("name","")),"volumeMm3":current})
+            history.append({"index":index,"name":str(feature.get("name","")),"volumeMm3":current,"planeOffset":offset})
         except Exception as error:
             raise ValueError("Feature %d (%s): %s" % (index+1, feature.get("name",""), error)) from error
     return shape, {"volumeMm3":volume(shape),"featureCount":len(features),"solidCount":count_solids(shape),"history":history,"sketchPlanes":sketch_planes(shape)}

@@ -167,3 +167,7 @@ SketchPlaneChoice lists current exact planar OCCT faces parallel to XY/XZ/YZ wit
 ## 0.4.0 viewport face picking
 Native model display uses OCCT tessellation tagged with exact face indices. The same z-buffer display/pick projection chooses the frontmost face; curved/tilted faces occlude but cannot start principal-plane sketches. Selection highlights orange. Commands: screen face select → click → selected face sketch; Esc clears selection. Keep plane snapshot limits explicit: no associative references yet. Project v3 unchanged. docs/MODELING-0.4.0.ko.md records scope and test limits.
 The user authorized continuing toward 1.0 without asking per-version permission. Keep working within that goal, and do not label incomplete milestones 1.0.
+
+## 0.4.1 semantic end-plane references
+PlaneSourceId stores the stable ID of an earlier one-direction additive extrusion in the same principal plane. Linked offset is recomputed from the source's resolved offset plus signed depth. This references a semantic end plane, not arbitrary persistent face topology or XY sketch placement. A selected face only auto-links when exactly one eligible source end plane matches position/orientation; otherwise snapshot. Reject missing, forward, cyclic, mismatched-plane and midplane sources. Source deletion/invalid edit must preserve the committed model.
+Projects now save v4 and read v1–v4. Prior releases must reject v4. Link state/source name shown in properties, plane/offset locked while linked, uncheck to freeze current displayed offset. docs/MODELING-0.4.1.ko.md.

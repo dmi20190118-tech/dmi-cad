@@ -82,7 +82,7 @@ sealed partial class ModelingWindow
             status.Text=id<0?"선택된 면이 없습니다. 모델의 면을 클릭하세요.":"이 면은 곡면 또는 경사진 면입니다. XY/XZ/YZ와 평행한 면을 선택하세요.";
             return;
         }
-        status.Text=$"선택: {pickedPlane}. '선택면 스케치'를 누르세요. 위치는 고정값으로 복사됩니다.";
+        status.Text=$"선택: {pickedPlane}. '선택면 스케치'를 누르세요. 연결 가능 여부는 스케치 속성에서 확인하세요.";
     }
     void StartPickedSketch()
     {
