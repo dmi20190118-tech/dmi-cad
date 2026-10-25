@@ -4,15 +4,18 @@ import math
 from pathlib import Path
 from OCP.Bnd import Bnd_Box
 from OCP.BRepBndLib import BRepBndLib
-from OCP.gp import gp_Pnt, gp_Dir, gp_Ax2, gp_Circ, gp_Vec, gp_Trsf
+from OCP.gp import gp_Pnt, gp_Dir, gp_Ax2, gp_Circ, gp_Vec, gp_Trsf, gp_Ax1
 from OCP.BRepBuilderAPI import BRepBuilderAPI_MakePolygon, BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire, BRepBuilderAPI_MakeFace, BRepBuilderAPI_Transform
-from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
+from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism, BRepPrimAPI_MakeRevol
+from OCP.BRepFilletAPI import BRepFilletAPI_MakeFillet
+from OCP.TopTools import TopTools_IndexedMapOfShape
+from OCP.TopExp import TopExp
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Fuse, BRepAlgoAPI_Cut
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 from OCP.TopExp import TopExp_Explorer
-from OCP.TopAbs import TopAbs_SOLID, TopAbs_FACE, TopAbs_REVERSED
+from OCP.TopAbs import TopAbs_SOLID, TopAbs_FACE, TopAbs_REVERSED, TopAbs_EDGE
 from OCP.TopoDS import TopoDS
 from OCP.BRepAdaptor import BRepAdaptor_Surface
 from OCP.GeomAbs import GeomAbs_Plane
@@ -104,7 +107,7 @@ def build_part(path):
     if Path(path).stat().st_size > 1048576:
         raise ValueError("Part project exceeds 1 MB.")
     doc = json.loads(Path(path).read_text(encoding="utf-8-sig"))
-    if doc.get("version") not in (1, 2, 3, 4) or doc.get("units") != "mm":
+    if doc.get("version") not in (1, 2, 3, 4, 5) or doc.get("units") != "mm":
         raise ValueError("Unsupported part project version or units.")
     features = doc.get("features", [])
     if not 1 <= len(features) <= 100:
@@ -115,6 +118,34 @@ def build_part(path):
     seen_ids = set()
     for index, feature in enumerate(features):
         try:
+            feature_kind = feature.get("featureKind", "extrude")
+            if feature_kind not in ("extrude", "revolve", "fillet"):
+                raise ValueError("Unsupported feature kind.")
+            if feature_kind == "fillet":
+                if shape is None or feature.get("planeSourceId", "") or feature.get("throughAll", False) or feature.get("midplane", False):
+                    raise ValueError("Fillet requires an existing body and no sketch-plane/end conditions.")
+                radius = number(feature.get("filletRadius"), "Fillet radius", True)
+                if radius > 10000: raise ValueError("Fillet radius exceeds 10000 mm.")
+                previous = volume(shape)
+                builder = BRepFilletAPI_MakeFillet(shape)
+                edges = TopTools_IndexedMapOfShape()
+                TopExp.MapShapes_s(shape, TopAbs_EDGE, edges)
+                for edge_index in range(1, edges.Extent()+1):
+                    builder.Add(radius, TopoDS.Edge_s(edges.FindKey(edge_index)))
+                builder.Build()
+                if not builder.IsDone():
+                    raise ValueError("All-edge fillet failed. Reduce radius or use a simpler body.")
+                candidate = builder.Shape()
+                current = volume(candidate)
+                if not BRepCheck_Analyzer(candidate).IsValid() or count_solids(candidate) != 1 or current < 1e-6 or abs(current-previous) <= max(1e-6,previous*1e-9):
+                    raise ValueError("Fillet did not produce a changed valid single solid.")
+                feature_id = feature.get("id", "")
+                if not isinstance(feature_id, str) or (feature_id and feature_id in seen_ids):
+                    raise ValueError("Invalid fillet identity.")
+                if feature_id: seen_ids.add(feature_id)
+                shape = candidate
+                history.append({"index":index,"name":str(feature.get("name","")),"volumeMm3":current,"planeOffset":0})
+                continue
             plane = feature.get("plane", "XY")
             offset = number(feature.get("offset", 0), "Plane offset")
             source_id = feature.get("planeSourceId", "")
@@ -160,6 +191,8 @@ def build_part(path):
                     (x-origin.X())*direction.X()+(y-origin.Y())*direction.Y()+(z-origin.Z())*direction.Z()
                     for x in (low_x,high_x) for y in (low_y,high_y) for z in (low_z,high_z))
                 depth = max(0,far)+1.0
+            if feature_kind == "revolve" and (midplane or through_all):
+                raise ValueError("Revolve does not support midplane or through-all conditions.")
             sketch = feature.get("sketch", {})
             kind = sketch.get("kind")
             if kind == "circle":
@@ -184,7 +217,19 @@ def build_part(path):
                 shift.SetTranslation(gp_Vec(direction).Multiplied(-depth/2))
                 profile = BRepBuilderAPI_Transform(profile, shift, True).Shape()
             feature_depth = depth
-            prism = BRepPrimAPI_MakePrism(profile, gp_Vec(direction).Multiplied(depth), True).Shape()
+            if feature_kind == "revolve":
+                angle = number(feature.get("angleDegrees", 360), "Revolve angle", True)
+                if angle > 360:
+                    raise ValueError("Revolve angle must be at most 360 degrees.")
+                min_u = sketch["center"][0]-sketch["radius"] if kind == "circle" else min(p[0] for p in polygon_points(sketch))
+                if min_u < -1e-8:
+                    raise ValueError("Revolve profile must stay on the U >= 0 side of the vertical V axis.")
+                a, b = map_point(0,0), map_point(0,1)
+                axis_direction = gp_Dir(gp_Vec(a,b))
+                if reverse: axis_direction = axis_direction.Reversed()
+                prism = BRepPrimAPI_MakeRevol(profile, gp_Ax1(a,axis_direction), math.radians(angle), True).Shape()
+            else:
+                prism = BRepPrimAPI_MakePrism(profile, gp_Vec(direction).Multiplied(depth), True).Shape()
             if not BRepCheck_Analyzer(prism).IsValid():
                 raise ValueError("Extrusion produced an invalid solid.")
             operation = feature.get("operation")
@@ -217,7 +262,7 @@ def build_part(path):
                 raise ValueError("Feature identity is invalid or duplicated.")
             if feature_id:
                 seen_ids.add(feature_id)
-                if operation == "add" and not midplane:
+                if operation == "add" and not midplane and feature_kind == "extrude":
                     axis_direction = direction.Y() if plane == "XZ" else direction.Z() if plane == "XY" else direction.X()
                     end_planes[feature_id] = {"plane":plane,"offset":offset+axis_direction*feature_depth}
             shape = candidate

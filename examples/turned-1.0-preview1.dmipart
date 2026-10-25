@@ -1,0 +1,45 @@
+{
+  "version": 5,
+  "units": "mm",
+  "name": "1.0 회전 중공 축",
+  "features": [
+    {
+      "id": "turned",
+      "name": "단차 단면 회전",
+      "featureKind": "revolve",
+      "angleDegrees": 360,
+      "operation": "add",
+      "plane": "XZ",
+      "depth": 10,
+      "sketch": {
+        "kind": "polygon",
+        "points": [
+          [
+            10,
+            0
+          ],
+          [
+            22,
+            0
+          ],
+          [
+            22,
+            8
+          ],
+          [
+            15,
+            8
+          ],
+          [
+            15,
+            45
+          ],
+          [
+            10,
+            45
+          ]
+        ]
+      }
+    }
+  ]
+}

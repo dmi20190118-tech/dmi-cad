@@ -112,7 +112,9 @@ sealed partial class ModelingWindow
         C(features,"피처 편집","dimension",()=>OpenFeatureProperties(true),"트리에서 피처 선택 후 속성을 편집합니다.");
         C(features,"삭제","delete",async()=>await RemoveFeature(),"선택 피처를 삭제하고 전체 재계산합니다.");
         Separator(features);
-        C(features,"필렛\n(개발 예정)","view",()=>{},"현재 미지원 기능입니다.",false);
+        C(features,"전체 모서리\n필렛","view",()=>OpenFeatureProperties(false,0,"fillet"),"기존 솔리드의 전체 모서리를 지정 반지름으로 둥글게 합니다. 복잡한 형상은 실패할 수 있습니다.");
+        C(features,"회전 보스","view",()=>OpenFeatureProperties(false,0,"revolve"),"U≥0의 닫힌 스케치를 세로 V축 주위로 회전합니다.");
+        C(features,"회전 컷","cut",()=>OpenFeatureProperties(false,1,"revolve"),"회전한 스케치 형상으로 기존 솔리드를 잘라냅니다.");
         C(features,"모따기\n(개발 예정)","view",()=>{},"현재 미지원 기능입니다.",false);
         var sketches=Page("스케치");
         C(sketches,"선택면\n스케치","circle",StartPickedSketch,"화면에서 선택한 평면에 원 스케치를 시작합니다. 좌표와 치수를 편집할 수 있습니다.");
@@ -132,7 +134,8 @@ sealed partial class ModelingWindow
         C(inspection,"내보내기","document",Export,"정밀 STEP/IGES 또는 메시 STL 출력.");
         C(inspection,"가공 지시서","document",Sheet,"현재 모델 참조를 지시서 초안에 전달합니다.");
         Separator(inspection);
-        C(inspection,"예제 부품","part",async()=>await LoadDemo(),"3개 피처의 실제 솔리드를 계산합니다.");
+        C(inspection,"1.0 금속\n플레이트","part",async()=>await LoadShowcase(true),"필렛·원형 보스·관통 구멍을 실제 정밀 형상으로 계산합니다.");
+        C(inspection,"회전 부품","part",async()=>await LoadTurnedShowcase(true),"스케치 회전으로 단차 있는 중공 축을 만듭니다.");
         C(inspection,"파일 뷰어","open",()=>new CadWindow().Show(this),"기존 교환 형식 파일을 확인합니다.");
         C(inspection,"도움말","document",Help,"현재 기능과 사용 순서, 제한을 확인합니다.");
 
@@ -159,9 +162,12 @@ sealed partial class ModelingWindow
         }
         plane.Items.AddRange(new object[]{"XY → +Z","XZ → −Y","YZ → +X"});plane.SelectedIndex=0;
         operation.Items.AddRange(new object[]{"재료 추가","재료 제거"});operation.SelectedIndex=0;
-        Row("피처 이름",featureName);Row("작업",operation);Row("스케치 평면",plane);Row("평면 오프셋 mm",offset);Row("평면 연결",planeLink);Row("참조 돌출",planeLinkInfo);
+        featureKind.Items.AddRange(new object[]{"돌출","회전","전체 모서리 필렛"});featureKind.SelectedIndex=0;
+        featureKind.SelectedIndexChanged+=(_,_)=>RefreshFeatureKind();
+        operation.SelectedIndexChanged+=(_,_)=>RefreshFeatureKind();
+        Row("피처 종류",featureKind);Row("피처 이름",featureName);Row("작업",operation);Row("스케치 평면",plane);Row("평면 오프셋 mm",offset);Row("평면 연결",planeLink);Row("참조 돌출",planeLinkInfo);
         planeLink.CheckedChanged+=(_,_)=>RefreshPlaneLink();RefreshPlaneLink();
-        Row("컷 종료 조건",throughAll);Row("전체 깊이 mm",depth);Row("돌출 방식",midplane);Row("돌출 방향",reverse);
+        Row("컷 종료 조건",throughAll);Row("전체 깊이 mm",depth);Row("회전각 °",angle);Row("필렛 반지름 mm",filletRadius);Row("돌출 방식",midplane);Row("돌출 방향",reverse);
         void RefreshExtrusionMode()
         {
             if(operation.SelectedIndex!=1)throughAll.Checked=false;
@@ -206,7 +212,7 @@ sealed partial class ModelingWindow
         }
         split.Panel2.Controls.Add(tabs);split.Panel2.Controls.Add(taskButtons);
         var bottom=new StatusStrip{BackColor=Color.FromArgb(240,243,246)};
-        status.Spring=true;status.TextAlign=ContentAlignment.MiddleLeft;bottom.Items.Add(status);bottom.Items.Add("MMGS · mm | 단일 솔리드 | 피처 프로젝트 v4");
+        status.Spring=true;status.TextAlign=ContentAlignment.MiddleLeft;bottom.Items.Add(status);bottom.Items.Add("MMGS · mm | 단일 솔리드 | 피처 프로젝트 v5");
         var context=new ContextMenuStrip();
         var editFeature=new ToolStripMenuItem("피처 정의 편집");editFeature.Click+=(_,_)=>OpenFeatureProperties(true);
         var editSketch=new ToolStripMenuItem("스케치 편집");editSketch.Click+=(_,_)=>{if(selected>=0){editingExisting=true;OpenSketchProperties();tabs.SelectedIndex=0;}};
@@ -224,15 +230,16 @@ sealed partial class ModelingWindow
         propertyHint.Text="좌표·치수를 입력한 뒤 '스케치 치수 적용'.\n원/사각형을 그리거나 다각형을 닫으세요.\n확인은 스케치를 유지하고 돌아갑니다.";
         managerTabs.SelectedIndex=1;commandTabs.SelectedIndex=1;
     }
-    void OpenFeatureProperties(bool edit,int op=-1)
+    void OpenFeatureProperties(bool edit,int op=-1,string kind="extrude")
     {
         if(edit&&(selected<0||selected>=document.Features.Count)){MessageBox.Show(this,"피처 트리에서 편집할 피처를 선택하세요.");return;}
-        editingExisting=edit;if(op>=0)operation.SelectedIndex=op;
+        editingExisting=edit;if(!edit)featureKind.SelectedIndex=kind=="revolve"?1:kind=="fillet"?2:0;
+        if(op>=0)operation.SelectedIndex=op;RefreshFeatureKind();
         propertyKind="feature";propertyActive=true;
-        propertyHeading.Text=edit?"피처 정의 편집":operation.SelectedIndex==1?"돌출 컷":"돌출 보스 / 베이스";
-        propertyHint.Text="평면·종료 조건·방향을 확인하세요.\n✓ 확인: 계산 / ✕ 취소: 입력 취소.\n치수 수정 후 치수 적용을 누르세요.";
+        propertyHeading.Text=edit?"피처 정의 편집":featureKind.SelectedIndex==2?"전체 모서리 필렛":featureKind.SelectedIndex==1?(operation.SelectedIndex==1?"회전 컷":"회전 보스"):(operation.SelectedIndex==1?"돌출 컷":"돌출 보스 / 베이스");
+        propertyHint.Text=featureKind.SelectedIndex==2?"전체 모서리에 필렛을 계산합니다.\n반지름을 지정하고 확인하세요.\n실패하면 반지름을 줄이세요.":featureKind.SelectedIndex==1?"세로 V축 주위로 회전합니다.\n스케치는 U≥0 쪽에 그리세요.\n회전각을 지정하고 확인하세요.":"평면·종료 조건·방향을 확인하세요.\n✓ 확인: 계산 / ✕ 취소: 입력 취소.\n치수 수정 후 치수 적용을 누르세요.";
         managerTabs.SelectedIndex=1;commandTabs.SelectedIndex=0;
-        if(!sketch.Closed){tabs.SelectedIndex=0;status.Text="먼저 스케치 탭에서 닫힌 스케치를 만드세요.";}
+        if(featureKind.SelectedIndex!=2&&!sketch.Closed){tabs.SelectedIndex=0;status.Text="먼저 스케치 탭에서 닫힌 스케치를 만드세요.";}
     }
     async Task ConfirmProperty()
     {
@@ -263,7 +270,7 @@ sealed partial class ModelingWindow
         if(reverse.Enabled)throw new Exception("Midplane did not disable irrelevant direction control.");
         if(managerTabs.SelectedIndex!=1)throw new Exception("Property manager did not activate.");
         await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));Directory.CreateDirectory("preview");preview.Save(Path.Combine("preview","property-manager-0.4.1.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));Directory.CreateDirectory("preview");preview.Save(Path.Combine("preview","property-manager-1.0-preview1.png"),System.Drawing.Imaging.ImageFormat.Png);}
         await ConfirmProperty();
         if(document.Features.Count!=before+1||!document.Features[^1].Reverse||!document.Copy().Features[^1].Reverse||!document.Copy().Features[^1].Midplane||managerTabs.SelectedIndex!=0)throw new Exception("Property confirmation failed.");
         tree.SelectedNode=tree.Nodes[0].Nodes.Cast<TreeNode>().First(n=>n.Tag is int i&&i==0);string snapshot=JsonSerializer.Serialize(document,PartDocument.Json);
@@ -280,7 +287,7 @@ sealed partial class ModelingWindow
         OpenFeatureProperties(true);throughAll.Checked=true;offset.Value=0;reverse.Checked=false;
         if(depth.Enabled||midplane.Enabled)throw new Exception("Through-all left incompatible inputs enabled.");
         await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-0.4.1.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-1.0-preview1.png"),System.Drawing.Imaging.ImageFormat.Png);}
         await ConfirmProperty();
         if(!document.Features[1].ThroughAll)throw new Exception("Through-all edit was not committed.");
         tree.SelectedNode=tree.Nodes[0].Nodes.Cast<TreeNode>().First(n=>n.Tag is int i&&i==0);
@@ -288,7 +295,7 @@ sealed partial class ModelingWindow
         string saved=Path.Combine(temp,"workflow-reopen.dmipart");
         await File.WriteAllTextAsync(saved,JsonSerializer.Serialize(document.Copy(),PartDocument.Json));
         var reopened=PartDocument.Parse(await File.ReadAllTextAsync(saved));
-        if(!reopened.Features[1].ThroughAll||reopened.Features[1].Reverse||reopened.Features[0].Depth!=15||reopened.Version!=4)
+        if(!reopened.Features[1].ThroughAll||reopened.Features[1].Reverse||reopened.Features[0].Depth!=15||reopened.Version!=5)
             throw new Exception("Disk reopen lost geometry settings.");
         if(!await Build(reopened))throw new Exception("Reopened model regeneration failed.");
         await Undo(false);await Undo(false);
@@ -299,7 +306,7 @@ sealed partial class ModelingWindow
         if(selected!=0)throw new Exception("Feature selection did not activate target.");
         tree.SelectedNode=tree.Nodes[0];
         if(selected!=-1)throw new Exception("Root selection retained a stale feature target.");
-        await CheckFaceSketchWorkflow();
+        await CheckFaceSketchWorkflow();await CheckAdvancedWorkflow();
         managerTabs.SelectedIndex=0;tabs.SelectedIndex=1;return true;
     }
 }

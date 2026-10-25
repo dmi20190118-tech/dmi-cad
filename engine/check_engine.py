@@ -149,7 +149,7 @@ with TemporaryDirectory(prefix="dmi-midplane-") as folder:
         circle["midplane"]=invalid
         project.write_text(json.dumps(doc),encoding="utf-8")
         assert subprocess.run([engine,str(project),str(folder/"invalid.step")],capture_output=True,timeout=180).returncode!=0
-    doc["version"]=5
+    doc["version"]=6
     circle["midplane"]=True
     project.write_text(json.dumps(doc),encoding="utf-8")
     assert subprocess.run([engine,str(project),str(folder/"future.step")],capture_output=True,timeout=180).returncode!=0
@@ -289,3 +289,47 @@ with TemporaryDirectory(prefix="dmi-plane-link-") as folder:
     reject_link([dict(base,midplane=True),boss]) # unsupported source mode
     reject_link([base,dict(boss,plane="XZ")]) # mismatched plane
 print("End-plane links, depth edits, chained references and broken reference rejection passed.")
+
+# 1.0 development bundle: revolution geometry, partial angle, cuts and fillet analytic volume.
+with TemporaryDirectory(prefix="dmi-1-modeling-") as folder:
+    folder=Path(folder)
+    source=folder/"advanced.dmipart"
+    target=folder/"advanced.step"
+    def advanced(features):
+        source.write_text(json.dumps({"version":5,"units":"mm","features":features}),encoding="utf-8")
+        subprocess.run([engine,str(source),str(target)],check=True,timeout=180)
+        reader=STEPControl_Reader()
+        assert reader.ReadFile(str(target))==IFSelect_RetDone and reader.TransferRoots()>0
+        props=GProp_GProps();BRepGProp.VolumeProperties_s(reader.OneShape(),props)
+        return abs(props.Mass())
+    for plane in ("XY","XZ","YZ"):
+        turned=feature(polygon([[10,0],[20,0],[20,30],[10,30]]),plane=plane)
+        turned.update(featureKind="revolve",angleDegrees=360)
+        expected=math.pi*(400-100)*30
+        assert abs(advanced([turned])-expected)<1e-4
+        turned["angleDegrees"]=180
+        assert abs(advanced([turned])-expected/2)<1e-4
+        turned["reverse"]=True
+        assert abs(advanced([turned])-expected/2)<1e-4
+    outer=feature(polygon([[0,0],[20,0],[20,30],[0,30]]),plane="XZ")
+    outer.update(featureKind="revolve",angleDegrees=360)
+    bore=feature(polygon([[0,0],[5,0],[5,30],[0,30]]),plane="XZ",operation="cut")
+    bore.update(featureKind="revolve",angleDegrees=360)
+    assert abs(advanced([outer,bore])-math.pi*(400-25)*30)<1e-4
+    box=feature(polygon([[0,0],[20,0],[20,30],[0,30]]),depth=40)
+    fillet={"featureKind":"fillet","filletRadius":2,"name":"R2"}
+    r=2;a=20-2*r;b=30-2*r;c=40-2*r
+    expected=a*b*c+2*r*(a*b+b*c+c*a)+math.pi*r*r*(a+b+c)+4*math.pi*r**3/3
+    assert abs(advanced([box,fillet])-expected)<1e-4
+    # Regeneration after changing a fillet parameter must change volume.
+    fillet["filletRadius"]=1
+    assert advanced([box,fillet])>expected
+    def reject_advanced(features):
+        source.write_text(json.dumps({"version":5,"units":"mm","features":features}),encoding="utf-8")
+        assert subprocess.run([engine,str(source),str(folder/"invalid.step")],capture_output=True,timeout=180).returncode!=0
+    reject_advanced([dict(outer,angleDegrees=361)])
+    reject_advanced([dict(outer,midplane=True)])
+    reject_advanced([dict(outer,sketch=polygon([[-5,0],[5,0],[5,10],[-5,10]]))])
+    reject_advanced([fillet])
+    reject_advanced([box,dict(fillet,filletRadius=100)])
+print("Revolution planes, partial/reverse angle, revolve cut, analytic fillet and rejection checks passed.")

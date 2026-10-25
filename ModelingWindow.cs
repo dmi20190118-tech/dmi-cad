@@ -14,6 +14,8 @@ sealed partial class ModelingWindow : Form
     readonly NumericUpDown u=N(0,-1000000,1000000),v=N(0,-1000000,1000000),width=N(100,.001m,2000000),
         height=N(70,.001m,2000000),radius=N(5,.001m,1000000),depth=N(10,.001m,10000),
         offset=N(0,-1000000,1000000),vertex=N(1,1,500),grid=N(1,.001m,1000);
+    readonly ComboBox featureKind=new(){DropDownStyle=ComboBoxStyle.DropDownList,Dock=DockStyle.Fill};
+    readonly NumericUpDown angle=N(360,.001m,360),filletRadius=N(2,.001m,10000);
     readonly TextBox featureName=new(){Text="돌출 1",MaxLength=200,Dock=DockStyle.Fill};
     string pendingPlaneSourceId="";
     readonly CheckBox planeLink=new(){Text="돌출 끝 평면 연결",AutoSize=true};
@@ -35,7 +37,7 @@ sealed partial class ModelingWindow : Form
     public ModelingWindow()
     {
         Directory.CreateDirectory(temp);
-        Text="디엠아이(DMI) CAD 0.4.1 — 정밀 스케치 / 솔리드";
+        Text="디엠아이(DMI) CAD 1.0 개발판 — 정밀 스케치 / 솔리드";
         Width=1500;Height=960;MinimumSize=new Size(1120,760);Font=new Font("Segoe UI",9);
         KeyPreview=true;
         BuildShell();
@@ -67,7 +69,7 @@ sealed partial class ModelingWindow : Form
     bool CanReplace()=>!dirty||MessageBox.Show(this,"저장하지 않은 모델 변경을 버리고 진행할까요?","변경 확인",MessageBoxButtons.YesNo,MessageBoxIcon.Question)==DialogResult.Yes;
     void Begin(string mode)
     {
-        pendingPlaneSourceId="";planeLink.Checked=false;RefreshPlaneLink();dimensionMode=mode;editingExisting=false;throughAll.Checked=false;reverse.Checked=false;midplane.Checked=false;sketch.Begin(mode);tabs.SelectedIndex=0;
+        featureKind.SelectedIndex=0;pendingPlaneSourceId="";planeLink.Checked=false;RefreshPlaneLink();dimensionMode=mode;editingExisting=false;throughAll.Checked=false;reverse.Checked=false;midplane.Checked=false;sketch.Begin(mode);tabs.SelectedIndex=0;
         if(shellReady)OpenSketchProperties();
         featureName.Text=(operation.SelectedIndex==1?"잘라내기 ":"돌출 ")+(document.Features.Count+1);
         status.Text="스케치를 그리거나 좌표·치수를 입력하고 '치수 적용'을 누르세요.";
@@ -108,10 +110,10 @@ sealed partial class ModelingWindow : Form
     void SelectFeature(int index)
     {
         if(index<0||index>=document.Features.Count)return;
-        selected=index;var f=document.Features[index];
+        selected=index;var f=document.Features[index];featureKind.SelectedIndex=f.FeatureKind=="revolve"?1:f.FeatureKind=="fillet"?2:0;angle.Value=(decimal)f.AngleDegrees;filletRadius.Value=(decimal)f.FilletRadius;
         featureName.Text=f.Name;plane.SelectedIndex=f.Plane=="XY"?0:f.Plane=="XZ"?1:2;operation.SelectedIndex=f.Operation=="add"?0:1;
         throughAll.Checked=f.ThroughAll;midplane.Checked=f.Midplane;reverse.Checked=f.Reverse;pendingPlaneSourceId=f.PlaneSourceId;planeLink.Checked=pendingPlaneSourceId.Length>0;RefreshPlaneLink();offset.Value=(decimal)document.PlaneOffset(f);depth.Value=(decimal)f.Depth;dimensionMode=f.Sketch.Kind=="circle"?"circle":f.Sketch.DimensionMode;
-        sketch.SetSketch(f.Sketch);status.Text=$"선택: {f.Name}. 수정 후 '피처 수정'으로 전체 재계산.";
+        sketch.SetSketch(f.Sketch);RefreshFeatureKind();status.Text=$"선택: {f.Name}. 수정 후 '피처 수정'으로 전체 재계산.";
     }
     void BuildTree()
     {
@@ -127,9 +129,9 @@ sealed partial class ModelingWindow : Form
             var f=document.Features[i];
             if(filter.Length>0&&!f.Name.Contains(filter,StringComparison.OrdinalIgnoreCase))continue;
             var node=root.Nodes.Add($"{i+1}. {f.Name} [{f.Plane} / {(f.ThroughAll?"관통":$"{f.Depth:G6} mm")}{(f.Midplane?" / 중간 평면":f.Reverse?" / 반대":"")}]");node.Tag=i;
-            node.Nodes.Add(f.Sketch.Kind=="circle"?"스케치 · 원":"스케치 · 닫힌 다각형").Tag=i;
+            node.Nodes.Add(f.FeatureKind=="fillet"?"전체 모서리 필렛":f.FeatureKind=="revolve"?"회전 · "+f.AngleDegrees+"°":f.Sketch.Kind=="circle"?"스케치 · 원":"스케치 · 닫힌 다각형").Tag=i;
         }
-        root.Expand();selected=-1;Text=$"디엠아이(DMI) CAD 0.4.1 — {document.Name}"+(dirty?" *":"");
+        root.Expand();selected=-1;Text=$"디엠아이(DMI) CAD 1.0-preview1 — {document.Name}"+(dirty?" *":"");
     }
     async Task<bool> Build(PartDocument next)
     {
@@ -148,10 +150,10 @@ sealed partial class ModelingWindow : Form
             var nextPlanes=JsonSerializer.Deserialize<List<SketchPlaneChoice>>(metrics.RootElement.GetProperty("sketchPlanes").GetRawText(),PartDocument.Json)??new();
             mesh=FaceMesh.Read(metrics.RootElement.GetProperty("renderTriangles"));mesh.Name=next.Name;mesh.Source=source;
             CancelFacePick();sketchPlanes=nextPlanes;geometry=mesh;viewport.Geometry=mesh;viewport.Fit();
-            report.Text=$"Open CASCADE 정밀 형상 검증 통과\r\n유효한 단일 솔리드\r\n단위: mm\r\n정확한 부피: {volume:G12} mm³\r\n피처: {next.Features.Count}\r\n표시 삼각형: {mesh.Triangles.Count:N0}\r\n표시 메시 외형: {mesh.Size.X:G7} × {mesh.Size.Y:G7} × {mesh.Size.Z:G7} mm\r\n\r\n외형은 표시 메시의 범위이며 정밀 면/모서리 측정 도구가 아닙니다.\r\n프로젝트는 스케치와 피처 이력을 저장하고 재계산합니다.\r\n스케치 구속 솔버, 필렛, 임의 면 선택, 도면·조립·금형·CAM/NC는 아직 구현되지 않았습니다.";
+            report.Text=$"Open CASCADE 정밀 형상 검증 통과\r\n유효한 단일 솔리드\r\n단위: mm\r\n정확한 부피: {volume:G12} mm³\r\n피처: {next.Features.Count}\r\n표시 삼각형: {mesh.Triangles.Count:N0}\r\n표시 메시 외형: {mesh.Size.X:G7} × {mesh.Size.Y:G7} × {mesh.Size.Z:G7} mm\r\n\r\n외형은 표시 메시의 범위이며 정밀 면/모서리 측정 도구가 아닙니다.\r\n프로젝트는 스케치와 피처 이력을 저장하고 재계산합니다.\r\n일반 스케치 구속 솔버, 임의 기울기 면 스케치, 도면·조립·금형·CAM/NC는 아직 구현되지 않았습니다.";
             return true;
         }
-        catch(Exception ex){MessageBox.Show(this,ex.Message+"\n기존 모델은 변경하지 않았습니다.","모델 재계산 실패");return false;}
+        catch(Exception ex){if(Program.Verifying)throw;MessageBox.Show(this,ex.Message+"\n기존 모델은 변경하지 않았습니다.","모델 재계산 실패");return false;}
         finally{rebuilding=false;Enabled=true;UseWaitCursor=false;status.Text="준비";}
     }
     async Task<bool> Commit(PartDocument next)
@@ -162,10 +164,11 @@ sealed partial class ModelingWindow : Form
     }
     async Task<bool> ApplyFeature(bool edit)
     {
-        if(!sketch.Closed){MessageBox.Show(this,"닫힌 스케치를 먼저 그리거나 치수를 적용하세요.");return false;}
+        if(featureKind.SelectedIndex!=2&&!sketch.Closed){MessageBox.Show(this,"닫힌 스케치를 먼저 그리거나 치수를 적용하세요.");return false;}
         if(edit&&(selected<0||selected>=document.Features.Count)){MessageBox.Show(this,"트리에서 수정할 피처를 선택하세요.");return false;}
         var next=document.Copy();
         var feature=new PartFeature{Name=string.IsNullOrWhiteSpace(featureName.Text)?"피처 "+(next.Features.Count+1):featureName.Text,
+            FeatureKind=featureKind.SelectedIndex==1?"revolve":featureKind.SelectedIndex==2?"fillet":"extrude",AngleDegrees=(double)angle.Value,FilletRadius=(double)filletRadius.Value,
             Operation=operation.SelectedIndex==0?"add":"cut",Plane=plane.SelectedIndex==0?"XY":plane.SelectedIndex==1?"XZ":"YZ",
             PlaneSourceId=planeLink.Checked?pendingPlaneSourceId:"",Offset=(double)offset.Value,Depth=(double)depth.Value,Reverse=reverse.Checked,Midplane=midplane.Checked,ThroughAll=throughAll.Checked,Sketch=sketch.Sketch.Copy()};
         if(edit){feature.Id=next.Features[selected].Id;next.Features[selected]=feature;}else next.Features.Add(feature);
@@ -251,6 +254,6 @@ sealed partial class ModelingWindow : Form
         return document.Features.Count==3&&document.Name=="예제 플레이트";
     }
     void Help()=>MessageBox.Show(this,
-        "디엠아이 CAD 0.4.1 — 시작하기\n\n1. 상단 스케치 탭 → 사각형/원/선 선택.\n2. 왼쪽 속성에서 좌표·치수 입력 → 스케치 치수 적용.\n3. 스케치 종료 또는 ✓ 확인으로 스케치를 유지합니다.\n4. 피처 탭 → 돌출 보스/베이스 또는 돌출 컷.\n5. 왼쪽 깊이·평면·오프셋·방향 설정(컷은 관통 선택 가능) → ✓ 확인.\n6. 피처 트리에서 우클릭 → 피처 정의 편집 / 스케치 편집.\n7. 변경은 확인으로 계산, 취소 또는 Esc로 미적용 입력 취소.\n\nCtrl+Z/Y: 피처 변경 취소/다시 실행. Ctrl+S: 프로젝트 저장.\n3D: 가운데 회전, Ctrl+가운데 이동, 휠 확대.\n면 목록에서 스케치 시작: 스케치 탭 → 면에서 스케치. 면 위치는 자동 추적되지 않습니다.\n일반 스케치 구속 솔버, 화면 직접 선택/정밀 측정, 도면·조립·금형·NC는 아직 없습니다.\nSOLIDWORKS 2020 기본 배치를 참고한 독립적인 디엠아이 UI이며 완전한 조작 호환은 아닙니다.",
+        "디엠아이 CAD 1.0 개발판 — 시작하기\n\n1. 상단 스케치 탭 → 사각형/원/선 선택.\n2. 왼쪽 속성에서 좌표·치수 입력 → 스케치 치수 적용.\n3. 스케치 종료 또는 ✓ 확인으로 스케치를 유지합니다.\n4. 피처 탭 → 돌출 보스/베이스 또는 돌출 컷.\n5. 왼쪽 깊이·평면·오프셋·방향 설정(컷은 관통 선택 가능) → ✓ 확인.\n6. 피처 트리에서 우클릭 → 피처 정의 편집 / 스케치 편집.\n7. 변경은 확인으로 계산, 취소 또는 Esc로 미적용 입력 취소.\n\nCtrl+Z/Y: 피처 변경 취소/다시 실행. Ctrl+S: 프로젝트 저장.\n3D: 가운데 회전, Ctrl+가운데 이동, 휠 확대.\n면 목록에서 스케치 시작: 스케치 탭 → 면에서 스케치. 면 위치는 자동 추적되지 않습니다.\n검사/출력 → 1.0 금속 플레이트 / 회전 부품 예제를 실행하세요.\n피처 → 회전 보스/컷, 전체 모서리 필렛을 사용할 수 있습니다.\n일반 스케치 구속 솔버, 정밀 모서리 측정, 도면·조립·금형·NC는 아직 없습니다.\nSOLIDWORKS 2020 기본 배치를 참고한 독립적인 디엠아이 UI이며 완전한 조작 호환은 아닙니다.",
         "도움말 · F1",MessageBoxButtons.OK,MessageBoxIcon.Information);
 }

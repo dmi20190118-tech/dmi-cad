@@ -1,0 +1,89 @@
+{
+  "version": 5,
+  "units": "mm",
+  "name": "1.0 필렛 플레이트",
+  "features": [
+    {
+      "id": "plate",
+      "name": "플레이트",
+      "operation": "add",
+      "featureKind": "extrude",
+      "plane": "XY",
+      "depth": 12,
+      "sketch": {
+        "kind": "polygon",
+        "points": [
+          [
+            0,
+            0
+          ],
+          [
+            100,
+            0
+          ],
+          [
+            100,
+            70
+          ],
+          [
+            0,
+            70
+          ]
+        ]
+      }
+    },
+    {
+      "id": "round",
+      "name": "전체 모서리 R3",
+      "featureKind": "fillet",
+      "filletRadius": 3
+    },
+    {
+      "id": "hole",
+      "name": "큰 관통 구멍",
+      "operation": "cut",
+      "throughAll": true,
+      "depth": 10,
+      "sketch": {
+        "kind": "circle",
+        "center": [
+          30,
+          35
+        ],
+        "radius": 11
+      }
+    },
+    {
+      "id": "boss",
+      "name": "원형 보스",
+      "operation": "add",
+      "plane": "XY",
+      "planeSourceId": "plate",
+      "offset": 12,
+      "depth": 14,
+      "sketch": {
+        "kind": "circle",
+        "center": [
+          73,
+          35
+        ],
+        "radius": 16
+      }
+    },
+    {
+      "id": "boss-hole",
+      "name": "보스 구멍",
+      "operation": "cut",
+      "throughAll": true,
+      "depth": 10,
+      "sketch": {
+        "kind": "circle",
+        "center": [
+          73,
+          35
+        ],
+        "radius": 7
+      }
+    }
+  ]
+}

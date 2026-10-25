@@ -5,9 +5,11 @@ namespace DmiCad;
 
 static class Program
 {
+    public static bool Verifying { get; private set; }
     [STAThread]
     static void Main(string[] args)
     {
+        Verifying=args.Length>0&&args[0]=="--demo-ready";
         if (args.Length > 0 && args[0] == "--self-test")
         {
             try { ImportChecks.Run(); SheetChecks.Run(); PartChecks.Run(); RasterChecks.Run(); Environment.ExitCode = 0; }
