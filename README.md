@@ -1,3 +1,5 @@
+> 최신 개발 버전: **0.3.2** — [돌출·컷 방향 반전 사용법](docs/MODELING-0.3.2.ko.md)
+
 # 디엠아이(DMI) CAD 0.3.1
 
 ![DMI](https://static.wixstatic.com/media/b61e9b_4c68109deaca422494f28c350edb38de~mv2.png)

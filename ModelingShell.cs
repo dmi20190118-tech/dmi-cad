@@ -157,7 +157,8 @@ sealed partial class ModelingWindow
         plane.Items.AddRange(new object[]{"XY → +Z","XZ → −Y","YZ → +X"});plane.SelectedIndex=0;
         operation.Items.AddRange(new object[]{"재료 추가","재료 제거"});operation.SelectedIndex=0;
         Row("피처 이름",featureName);Row("작업",operation);Row("스케치 평면",plane);Row("평면 오프셋 mm",offset);
-        Row("돌출 깊이 mm",depth);Row("U / 점 X mm",u);Row("V / 점 Y mm",v);Row("사각형 너비 mm",width);
+        Row("돌출 깊이 mm",depth);Row("돌출 방향",reverse);
+        tips.SetToolTip(reverse,"체크하면 기준면의 법선 반대 방향으로 돌출/잘라내기합니다. 깊이는 양수 mm입니다.");Row("U / 점 X mm",u);Row("V / 점 Y mm",v);Row("사각형 너비 mm",width);
         Row("사각형 높이 mm",height);Row("원 반지름 mm",radius);Row("꼭짓점 번호",vertex);Row("스냅 간격 mm",grid);
         var apply=new Button{Text="스케치 치수 적용",Height=34,Dock=DockStyle.Fill};apply.Click+=(_,_)=>ApplyDimensions();
         int buttonRow=props.RowCount++;props.RowStyles.Add(new RowStyle(SizeType.Absolute,40));props.Controls.Add(apply,0,buttonRow);props.SetColumnSpan(apply,2);
@@ -211,7 +212,7 @@ sealed partial class ModelingWindow
         editingExisting=edit;if(op>=0)operation.SelectedIndex=op;
         propertyKind="feature";propertyActive=true;
         propertyHeading.Text=edit?"피처 정의 편집":operation.SelectedIndex==1?"돌출 컷":"돌출 보스 / 베이스";
-        propertyHint.Text="닫힌 스케치, 기준면·오프셋·깊이를 확인하세요.\n✓ 확인: 정밀 형상 계산 / ✕ 취소: 변경 안 함.\n스케치 치수 변경은 별도 적용 버튼을 누릅니다.";
+        propertyHint.Text="닫힌 스케치, 평면·깊이·반대 방향을 확인하세요.\n✓ 확인: 정밀 형상 계산 / ✕ 취소: 변경 안 함.\n스케치 치수 변경은 별도 적용 버튼을 누릅니다.";
         managerTabs.SelectedIndex=1;commandTabs.SelectedIndex=0;
         if(!sketch.Closed){tabs.SelectedIndex=0;status.Text="먼저 스케치 탭에서 닫힌 스케치를 만드세요.";}
     }
@@ -240,14 +241,15 @@ sealed partial class ModelingWindow
         int before=document.Features.Count;
         Begin("rectangle");u.Value=70;v.Value=10;width.Value=10;height.Value=10;ApplyDimensions();FinishSketchSession();
         if(!sketch.Closed||managerTabs.SelectedIndex!=0||commandTabs.TabPages.Count!=3)throw new Exception("Sketch completion or command tabs failed.");
-        offset.Value=10;depth.Value=5;OpenFeatureProperties(false,0);
+        offset.Value=0;depth.Value=5;reverse.Checked=true;OpenFeatureProperties(false,0);
         if(managerTabs.SelectedIndex!=1)throw new Exception("Property manager did not activate.");
         await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));Directory.CreateDirectory("preview");preview.Save(Path.Combine("preview","property-manager-0.3.1.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));Directory.CreateDirectory("preview");preview.Save(Path.Combine("preview","property-manager-0.3.2.png"),System.Drawing.Imaging.ImageFormat.Png);}
         await ConfirmProperty();
-        if(document.Features.Count!=before+1||managerTabs.SelectedIndex!=0)throw new Exception("Property confirmation failed.");
+        if(document.Features.Count!=before+1||!document.Features[^1].Reverse||!document.Copy().Features[^1].Reverse||managerTabs.SelectedIndex!=0)throw new Exception("Property confirmation failed.");
         tree.SelectedNode=tree.Nodes[0].Nodes.Cast<TreeNode>().First(n=>n.Tag is int i&&i==0);string snapshot=JsonSerializer.Serialize(document,PartDocument.Json);
-        OpenFeatureProperties(true);depth.Value=20;CancelProperty();
+        OpenFeatureProperties(true);depth.Value=20;reverse.Checked=true;CancelProperty();
+        if(reverse.Checked)throw new Exception("Cancel did not restore extrusion direction.");
         if(JsonSerializer.Serialize(document,PartDocument.Json)!=snapshot)throw new Exception("Cancel changed the committed model.");
         await Undo(false);if(document.Features.Count!=before)throw new Exception("UI undo failed.");
         await Undo(true);if(document.Features.Count!=before+1)throw new Exception("UI redo failed.");

@@ -1,3 +1,5 @@
+> 최신 개발 버전: **0.3.2** — [돌출·컷 방향 반전 사용법](MODELING-0.3.2.ko.md)
+
 **현재 인터페이스:** [0.3.1 화면과 작업 순서](INTERFACE-0.3.1.ko.md)
 
 ![DMI — Design · Mold · Injection](https://static.wixstatic.com/media/b61e9b_4c68109deaca422494f28c350edb38de~mv2.png)

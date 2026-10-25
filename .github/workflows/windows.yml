@@ -83,7 +83,7 @@ jobs:
             try { if (-not [DmiCapture]::PrintWindow($app.MainWindowHandle,$dc,2)) { throw "Window capture failed." } }
             finally { $graphics.ReleaseHdc($dc) }
             New-Item preview -ItemType Directory -Force
-            $bitmap.Save((Join-Path $pwd 'preview/modeler-0.3.1.png'),[System.Drawing.Imaging.ImageFormat]::Png)
+            $bitmap.Save((Join-Path $pwd 'preview/modeler-0.3.2.png'),[System.Drawing.Imaging.ImageFormat]::Png)
             $graphics.Dispose()
             $bitmap.Dispose()
             Write-Host "Three-feature model generated in the actual GUI."
@@ -103,24 +103,24 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: DMI-CAD-Windows-x64
-          path: installer-output/DMI-CAD-Setup-0.3.1.exe
+          path: installer-output/DMI-CAD-Setup-0.3.2.exe
           if-no-files-found: error
           retention-days: 30
       - uses: actions/upload-artifact@v4
         with:
-          name: DMI-CAD-0.3.1-Preview
+          name: DMI-CAD-0.3.2-Preview
           path: |
-            preview/modeler-0.3.1.png
-            preview/property-manager-0.3.1.png
+            preview/modeler-0.3.2.png
+            preview/property-manager-0.3.2.png
       - name: Save actual modeler preview
         shell: pwsh
         run: |
           git config user.name "DMI CAD Preview"
           git config user.email "preview@users.noreply.github.com"
-          git add preview/modeler-0.3.1.png preview/property-manager-0.3.1.png
+          git add preview/modeler-0.3.2.png preview/property-manager-0.3.2.png
           git diff --cached --quiet
           if ($LASTEXITCODE -ne 0) {
-            git commit -m "Capture actual DMI CAD 0.3.1 interface [skip ci]"
+            git commit -m "Capture actual DMI CAD 0.3.2 interface [skip ci]"
             git pull --rebase origin main
             git push origin HEAD:main
           }

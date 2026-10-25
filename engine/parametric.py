@@ -91,6 +91,11 @@ def build_part(path):
                 direction = gp_Dir(1,0,0)
             else:
                 raise ValueError("Unsupported sketch plane.")
+            reverse = feature.get("reverse", False)
+            if not isinstance(reverse, bool):
+                raise ValueError("Reverse direction must be boolean.")
+            if reverse:
+                direction = direction.Reversed()
             sketch = feature.get("sketch", {})
             kind = sketch.get("kind")
             if kind == "circle":

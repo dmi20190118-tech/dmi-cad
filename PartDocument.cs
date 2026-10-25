@@ -19,6 +19,7 @@ public sealed class PartFeature
     public string Plane { get; set; } = "XY";
     public double Offset { get; set; }
     public double Depth { get; set; } = 10;
+    public bool Reverse { get; set; }
     public PartSketch Sketch { get; set; } = new();
 }
 public sealed class PartDocument
@@ -71,6 +72,8 @@ static class PartChecks
         copy.Features[0].Sketch.Points[0][0]=9;
         if(doc.Features[0].Sketch.Points[0][0]!=0)throw new Exception("Part snapshots share mutable vertices.");
         if(PartDocument.Parse(JsonSerializer.Serialize(doc,PartDocument.Json)).Features[0].Id!=doc.Features[0].Id)throw new Exception("Feature identity changed.");
+        copy.Features[0].Reverse=true;
+        if(!copy.Copy().Features[0].Reverse||doc.Features[0].Reverse)throw new Exception("Extrusion direction persistence failed.");
         doc.Features[0].Depth=-1;
         try {doc.Copy();throw new Exception("Negative depth accepted.");}catch(InvalidDataException){}
     }

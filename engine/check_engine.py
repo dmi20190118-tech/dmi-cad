@@ -84,3 +84,38 @@ with TemporaryDirectory(prefix="dmi-model-") as folder:
         subprocess.run([engine,str(project),str(result)],check=True,timeout=180)
         assert abs(json.loads(Path(str(result)+".metrics.json").read_text())["volumeMm3"]-2000)<1e-5
 print("Exact sketch extrusion, boolean cut, feature edit, STEP roundtrip, plane and rejection checks passed.")
+
+# Reverse direction: exact STEP bounds, all principal planes, cuts and roundtrip.
+from OCP.Bnd import Bnd_Box
+from OCP.BRepBndLib import BRepBndLib
+with TemporaryDirectory(prefix="dmi-direction-") as folder:
+    folder=Path(folder)
+    project=folder/"direction.dmipart"
+    target=folder/"direction.step"
+    def check_direction(features, expected_volume, expected_bounds):
+        project.write_text(json.dumps({"version":1,"units":"mm","features":features}),encoding="utf-8")
+        subprocess.run([engine,str(project),str(target)],check=True,timeout=180)
+        reader=STEPControl_Reader()
+        assert reader.ReadFile(str(target))==IFSelect_RetDone and reader.TransferRoots()>0
+        shape=reader.OneShape()
+        props=GProp_GProps()
+        BRepGProp.VolumeProperties_s(shape,props)
+        assert abs(abs(props.Mass())-expected_volume)<1e-4
+        box=Bnd_Box()
+        BRepBndLib.Add_s(shape,box)
+        assert all(abs(a-b)<1e-4 for a,b in zip(box.Get(),expected_bounds)),(box.Get(),expected_bounds)
+    for plane,bounds in [
+        ("XY",(0,0,-7,20,10,0)),
+        ("XZ",(0,0,0,20,7,10)),
+        ("YZ",(-7,0,0,0,20,10))]:
+        f=feature(polygon([[0,0],[20,0],[20,10],[0,10]]),depth=7,plane=plane)
+        f["reverse"]=True
+        check_direction([f],1400,bounds)
+    base=feature(polygon([[0,0],[20,0],[20,10],[0,10]]))
+    cut=feature({"kind":"circle","center":[5,5],"radius":2},operation="cut",offset=10)
+    cut["reverse"]=True
+    check_direction([base,cut],2000-math.pi*40,(0,0,0,20,10,10))
+    cut["reverse"]="false"
+    project.write_text(json.dumps({"version":1,"units":"mm","features":[base,cut]}),encoding="utf-8")
+    assert subprocess.run([engine,str(project),str(folder/"invalid.step")],capture_output=True,timeout=180).returncode!=0
+print("Reverse extrusion bounds, three planes, reverse cut and invalid direction checks passed.")
