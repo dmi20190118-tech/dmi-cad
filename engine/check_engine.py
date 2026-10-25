@@ -197,3 +197,31 @@ with TemporaryDirectory(prefix="dmi-through-all-") as folder:
     check_through(reopened["features"],(200-math.pi*4)*10)
     assert project.read_bytes()==original_bytes
 print("Through-all three planes, both directions, upstream edits, disk reopen and rejection checks passed.")
+
+# Exact planar face discovery and face-derived inward through-cut.
+with TemporaryDirectory(prefix="dmi-face-plane-") as folder:
+    folder=Path(folder)
+    source=folder/"face.dmipart"
+    target=folder/"face.step"
+    def face_model(features):
+        source.write_text(json.dumps({"version":3,"units":"mm","features":features}),encoding="utf-8")
+        subprocess.run([engine,str(source),str(target)],check=True,timeout=180)
+        return json.loads(Path(str(target)+".metrics.json").read_text())
+    for plane in ("XY","XZ","YZ"):
+        base=feature(polygon([[0,0],[20,0],[20,10],[0,10]]),plane=plane)
+        m=face_model([base])
+        faces=m["sketchPlanes"]
+        assert len(faces)==6 and abs(sum(f["areaMm2"] for f in faces)-1000)<1e-5
+        end=-10 if plane=="XZ" else 10
+        top=next(f for f in faces if f["plane"]==plane and abs(f["offset"]-end)<1e-8)
+        assert not top["outwardReverse"] and abs(top["areaMm2"]-200)<1e-6
+        cut=feature({"kind":"circle","center":[5,5],"radius":2},plane=top["plane"],offset=top["offset"],operation="cut",depth=1)
+        cut.update(reverse=not top["outwardReverse"],throughAll=True)
+        assert abs(face_model([base,cut])["volumeMm3"]-(2000-math.pi*40))<1e-5
+    cylinder=feature({"kind":"circle","center":[0,0],"radius":5},depth=10)
+    faces=face_model([cylinder])["sketchPlanes"]
+    assert len(faces)==2, "Curved cylinder wall was offered as a sketch plane."
+    assert all(f["plane"]=="XY" for f in faces)
+    tilted=feature(polygon([[0,0],[20,0],[0,10]]))
+    assert len(face_model([tilted])["sketchPlanes"])==4, "Tilted planar side was incorrectly treated as a principal plane."
+print("Exact face areas, three plane orientations, face-derived cuts and curved face exclusion passed.")

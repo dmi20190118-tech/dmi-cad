@@ -12,7 +12,10 @@ from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 from OCP.TopExp import TopExp_Explorer
-from OCP.TopAbs import TopAbs_SOLID
+from OCP.TopAbs import TopAbs_SOLID, TopAbs_FACE, TopAbs_REVERSED
+from OCP.TopoDS import TopoDS
+from OCP.BRepAdaptor import BRepAdaptor_Surface
+from OCP.GeomAbs import GeomAbs_Plane
 
 def number(value, name, positive=False):
     if isinstance(value, bool) or not isinstance(value, (float, int)):
@@ -63,6 +66,39 @@ def count_solids(shape):
         count += 1
         it.Next()
     return count
+
+def sketch_planes(shape):
+    """Exact planar faces parallel to principal planes; no inferred mesh planes."""
+    result = []
+    explorer = TopExp_Explorer(shape, TopAbs_FACE)
+    index = 0
+    while explorer.More():
+        face = TopoDS.Face_s(explorer.Current())
+        surface = BRepAdaptor_Surface(face)
+        if surface.GetType() == GeomAbs_Plane:
+            p = surface.Plane()
+            normal = p.Axis().Direction()
+            if face.Orientation() == TopAbs_REVERSED:
+                normal = normal.Reversed()
+            xyz = (normal.X(), normal.Y(), normal.Z())
+            axis = max(range(3), key=lambda i: abs(xyz[i]))
+            if abs(abs(xyz[axis])-1) < 1e-12 and all(abs(xyz[i]) < 1e-12 for i in range(3) if i != axis):
+                origin = p.Location()
+                offset = (origin.X(), origin.Y(), origin.Z())[axis]
+                if abs(offset) > 1000000:
+                    index += 1
+                    explorer.Next()
+                    continue
+                props = GProp_GProps()
+                BRepGProp.SurfaceProperties_s(face, props)
+                center = props.CentreOfMass()
+                result.append({"faceIndex":index,"plane":("YZ","XZ","XY")[axis],
+                    "offset":offset,"areaMm2":props.Mass(),
+                    "outwardReverse":xyz[axis] * (1,-1,1)[axis] < 0,
+                    "center":[center.X(),center.Y(),center.Z()]})
+        index += 1
+        explorer.Next()
+    return result
 
 def build_part(path):
     if Path(path).stat().st_size > 1048576:
@@ -170,4 +206,4 @@ def build_part(path):
             history.append({"index":index,"name":str(feature.get("name","")),"volumeMm3":current})
         except Exception as error:
             raise ValueError("Feature %d (%s): %s" % (index+1, feature.get("name",""), error)) from error
-    return shape, {"volumeMm3":volume(shape),"featureCount":len(features),"solidCount":count_solids(shape),"history":history}
+    return shape, {"volumeMm3":volume(shape),"featureCount":len(features),"solidCount":count_solids(shape),"history":history,"sketchPlanes":sketch_planes(shape)}

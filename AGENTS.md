@@ -160,3 +160,6 @@ CI additionally exercises sketch completion, property pane activation, feature c
 ## 0.3.4 through-all and 1.0 acceptance
 ThroughAll is a one-direction cut from the sketch plane to beyond the preceding exact solid bounds. It is not bidirectional. Reject additive/midplane/missing-solid combinations. Recompute after upstream edits. Numeric plane offset is not a face-linked reference. Projects now save v3 and read v1/v2/v3; never downgrade new files to older versions.
 docs/ACCEPTANCE-1.0.ko.md records the user's required workflow and remaining face selection/constraints gaps. Do not call this incremental build 1.0 or claim the whole acceptance scenario passed while face-attached sketching is absent.
+
+## 0.3.5 exact face-plane snapshots
+SketchPlaneChoice lists current exact planar OCCT faces parallel to XY/XZ/YZ with offset, area, outward orientation and center. The native sketch command opens a list and starts a circle/rectangle sketch by copying plane/offset and initial inward/outward direction. This is a numeric snapshot, NOT an associative face attachment. No viewport clicking/highlight or tilted/curved surface sketches. Regeneration replaces the list and rejects stale objects. Project v3 unchanged. Help: docs/MODELING-0.3.5.ko.md.
