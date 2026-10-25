@@ -45,7 +45,7 @@ sealed partial class ModelingWindow
         if(document.Features[0].AngleDegrees!=270||document.Features[0].FeatureKind!="revolve")throw new Exception("Revolve property edit failed.");
         await Undo(false);
         viewport.SetView("iso");await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","revolve-1.0-preview2.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","revolve-1.0-preview3.png"),System.Drawing.Imaging.ImageFormat.Png);}
         if(!await LoadShowcase(false))throw new Exception("Fillet showcase failed.");
         tree.SelectedNode=tree.Nodes[0].Nodes.Cast<TreeNode>().First(n=>n.Tag is int i&&i==1);
         OpenFeatureProperties(true);filletRadius.Value=2;await ConfirmProperty();

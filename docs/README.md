@@ -1,3 +1,5 @@
+> **1.0 개발판 3: [SOLIDWORKS 공식 자료를 참조한 단계별 스케치·쌓기·파기 안내](SOLIDWORKS-WORKFLOW-REFERENCE.ko.md)**
+
 > **1.0 개발판 2: [평면 → 스케치 → 보스 → 면 → 새 스케치 → 컷 흐름 수정](CORE-WORKFLOW-1.0-preview2.ko.md)**
 
 > **현재: [1.0 개발판 1 — 회전·필렛·통합 예제](MODELING-1.0-preview1.ko.md)**. 정식 1.0은 미완료입니다. 아래 0.x 문서는 이전 기능의 상세 기록입니다.

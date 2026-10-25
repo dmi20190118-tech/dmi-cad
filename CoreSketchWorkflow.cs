@@ -53,26 +53,35 @@ sealed partial class ModelingWindow
         if(!await Commit(new PartDocument{Name="기본 모델링 흐름 검증"}))throw new Exception("Cannot reset workflow document.");
         SelectBasePlaneForCheck("XZ");Begin("rectangle");Begin("circle");Begin("rectangle");
         if(plane.SelectedIndex!=1||offset.Value!=0)throw new Exception("Base-plane sketch tool change lost plane.");
-        SelectBasePlaneForCheck("XY");Begin("rectangle");
+        CancelProperty();RefreshWorkflowGuide();guidePlanes[0].PerformClick();RefreshWorkflowGuide();
+        if(!guideStart.Enabled||!guideTarget.Text.Contains("XY"))throw new Exception("Guide did not identify the selected base plane.");
+        guideStart.PerformClick();guideRectangle.PerformClick();
         sketch.ClickWorldForCheck(0,0);sketch.ClickWorldForCheck(60,40);
         if(!sketch.Closed)throw new Exception("Mouse rectangle did not close.");
-        FinishSketchSession();OpenFeatureProperties(false,0);depth.Value=10;await ConfirmProperty();
+        RefreshWorkflowGuide();guideBoss.PerformClick();depth.Value=10;await ConfirmProperty();
         if(document.Features.Count!=1||Math.Abs(modelVolume-24000)>1e-5)throw new Exception("Plane → mouse rectangle → base extrusion failed.");
         // No special 'face select' mode is armed. Normal click then ordinary sketch tool.
-        ClickPlanarFaceForCheck(10);Begin("rectangle");Begin("circle");
+        ClickPlanarFaceForCheck(10);RefreshWorkflowGuide();
+        if(!guideStart.Enabled||!guideStart.Text.Contains("이 면")||!guideTarget.Text.Contains("10"))throw new Exception("Guide did not identify the selected model face.");
+        await CaptureCoreCheck("selected-face-1.0-preview3.png");
+        guideStart.PerformClick();guideCircle.PerformClick();
         if(offset.Value!=10||!planeLink.Checked||!faceSketch||sketch.ReferenceTriangles.Count==0)throw new Exception("Face context lost on sketch tool change.");
         sketch.ClickWorldForCheck(40,20);sketch.ClickWorldForCheck(45,20);
         if(!sketch.Closed)throw new Exception("Mouse circle did not close.");
-        await CaptureCoreCheck("core-sketch-1.0-preview2.png");
-        FinishSketchSession();OpenFeatureProperties(false,0);depth.Value=8;
+        RefreshWorkflowGuide();
+        if(!guideBoss.Visible||!guideTarget.Text.Contains("닫힌 스케치")||!guideTarget.Text.Contains("10"))
+            throw new Exception("Closed sketch did not expose the next boss/cut actions.");
+        await CaptureCoreCheck("core-sketch-1.0-preview3.png");
+        guideBoss.PerformClick();depth.Value=8;RefreshWorkflowGuide();
+        if(!guideConfirm.Enabled||!guideStage.Text.Contains("③"))throw new Exception("Guide did not reach feature confirmation.");
         if(reverse.Checked)throw new Exception("Boss pointed inside instead of outward.");
         await ConfirmProperty();
         double bossVolume=24000+Math.PI*25*8;
         if(document.Features.Count!=2||Math.Abs(modelVolume-bossVolume)>1e-5||document.Features[1].PlaneSourceId!=document.Features[0].Id)
             throw new Exception("Selected face → new mouse sketch → outward boss failed.");
-        ClickPlanarFaceForCheck(18);Begin("rectangle");Begin("circle");
+        ClickPlanarFaceForCheck(18);RefreshWorkflowGuide();guideStart.PerformClick();guideCircle.PerformClick();
         sketch.ClickWorldForCheck(40,20);sketch.ClickWorldForCheck(42,20);
-        FinishSketchSession();OpenFeatureProperties(false,1);throughAll.Checked=true;
+        RefreshWorkflowGuide();guideCut.PerformClick();throughAll.Checked=true;
         if(!reverse.Checked||offset.Value!=18)throw new Exception("Cut did not point inside from selected top face.");
         await ConfirmProperty();
         double cutVolume=bossVolume-Math.PI*4*18;
@@ -84,6 +93,6 @@ sealed partial class ModelingWindow
         await Undo(false);if(Math.Abs(modelVolume-bossVolume)>1e-5)throw new Exception("Core workflow undo failed.");
         await Undo(true);if(Math.Abs(modelVolume-cutVolume)>1e-5)throw new Exception("Core workflow redo failed.");
         viewport.SetView("iso");managerTabs.SelectedIndex=0;tabs.SelectedIndex=1;
-        await CaptureCoreCheck("core-workflow-1.0-preview2.png");
+        await CaptureCoreCheck("core-workflow-1.0-preview3.png");
     }
 }

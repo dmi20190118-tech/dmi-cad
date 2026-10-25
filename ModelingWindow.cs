@@ -41,6 +41,7 @@ sealed partial class ModelingWindow : Form
         Width=1500;Height=960;MinimumSize=new Size(1120,760);Font=new Font("Segoe UI",9);
         KeyPreview=true;
         BuildShell();
+        StartWorkflowGuide();
         viewport.FacePicked+=FaceWasPicked;
         operation.SelectedIndexChanged+=(_,_)=>{if(faceSketch&&featureKind.SelectedIndex==0)reverse.Checked=faceOutwardReverse^(operation.SelectedIndex==1);};
         foreach(var input in new[]{u,v,width,height,radius,vertex})
@@ -64,7 +65,7 @@ sealed partial class ModelingWindow : Form
         };
         KeyDown+=async(_,e)=>{if(e.Control&&e.KeyCode==Keys.Z){e.SuppressKeyPress=true;await Undo(false);}else if(e.Control&&e.KeyCode==Keys.Y){e.SuppressKeyPress=true;await Undo(true);}else if(e.Control&&e.KeyCode==Keys.S){e.SuppressKeyPress=true;SaveProject();}else if(e.KeyCode==Keys.Escape){e.SuppressKeyPress=true;CancelFacePick();CancelProperty();}else if(e.KeyCode==Keys.F1){e.SuppressKeyPress=true;Help();}};
         FormClosing+=(_,e)=>{if(rebuilding){e.Cancel=true;return;}if(dirty&&MessageBox.Show(this,"저장하지 않은 모델 변경을 닫을까요?","변경 확인",MessageBoxButtons.YesNo,MessageBoxIcon.Question)!=DialogResult.Yes)e.Cancel=true;};
-        FormClosed+=(_,_)=>{tips.Dispose();try{Directory.Delete(temp,true);}catch{}};
+        FormClosed+=(_,_)=>{guideTimer.Stop();guideTimer.Dispose();tips.Dispose();try{Directory.Delete(temp,true);}catch{}};
         BuildTree();tabs.SelectedIndex=1;status.Text="스케치 탭에서 도형을 선택해 시작하세요.";
     }
     readonly ToolTip tips=new(){AutoPopDelay=15000};
@@ -141,10 +142,11 @@ sealed partial class ModelingWindow : Form
         {
             var f=document.Features[i];
             if(filter.Length>0&&!f.Name.Contains(filter,StringComparison.OrdinalIgnoreCase))continue;
-            var node=root.Nodes.Add($"{i+1}. {f.Name} [{f.Plane} / {(f.ThroughAll?"관통":$"{f.Depth:G6} mm")}{(f.Midplane?" / 중간 평면":f.Reverse?" / 반대":"")}]");node.Tag=i;
+            string detail=f.FeatureKind=="fillet"?$"필렛 R{f.FilletRadius:G6} mm":f.FeatureKind=="revolve"?$"회전 {f.AngleDegrees:G6}°":$"{f.Plane} / {(f.ThroughAll?"관통":$"{f.Depth:G6} mm")}{(f.Midplane?" / 중간 평면":f.Reverse?" / 반대":"")}";
+            var node=root.Nodes.Add($"{i+1}. {f.Name} [{detail}]");node.Tag=i;
             node.Nodes.Add(f.FeatureKind=="fillet"?"전체 모서리 필렛":f.FeatureKind=="revolve"?"회전 · "+f.AngleDegrees+"°":f.Sketch.Kind=="circle"?"스케치 · 원":"스케치 · 닫힌 다각형").Tag=i;
         }
-        root.Expand();selected=-1;Text=$"디엠아이(DMI) CAD 1.0-preview2 — {document.Name}"+(dirty?" *":"");
+        root.Expand();selected=-1;Text=$"디엠아이(DMI) CAD 1.0-preview3 — {document.Name}"+(dirty?" *":"");
     }
     async Task<bool> Build(PartDocument next)
     {
@@ -204,7 +206,7 @@ sealed partial class ModelingWindow : Form
     {
         if(!CanReplace())return;
         EndSketchSession();CancelFacePick();document=new PartDocument();sketchPlanes.Clear();geometry=null;viewport.Geometry=null;viewport.Invalidate();undo.Clear();redo.Clear();
-        dirty=false;projectPath=null;report.Clear();BuildTree();Begin("rectangle");
+        dirty=false;projectPath=null;report.Clear();BuildTree();sketch.Begin("rectangle");tabs.SelectedIndex=1;RefreshWorkflowGuide();
     }
     async void OpenProject()
     {

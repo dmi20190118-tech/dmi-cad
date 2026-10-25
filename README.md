@@ -1,3 +1,5 @@
+> **1.0 개발판 3: [SOLIDWORKS 공식 자료를 참조한 단계별 스케치·쌓기·파기 안내](docs/SOLIDWORKS-WORKFLOW-REFERENCE.ko.md)**
+
 > **1.0 개발판 2: [평면 → 스케치 → 보스 → 면 → 새 스케치 → 컷 흐름 수정](docs/CORE-WORKFLOW-1.0-preview2.ko.md)**
 
 # 디엠아이(DMI) CAD — 1.0 개발판 1
@@ -18,7 +20,7 @@ Windows용 정밀 스케치·솔리드 모델링 개발판입니다. 정식 1.0 
 
 ## 설치
 [Windows Actions](https://github.com/dmi20190118-tech/dmi-cad/actions)의 성공한 빌드 → Artifacts → DMI-CAD-Windows-x64에서 ZIP을 받고 압축을 풉니다.
-DMI-CAD-Setup-1.0-preview2.exe 실행. Windows 10/11 x64, .NET 실행 환경과 CAD 엔진 포함. GitHub 로그인이 필요할 수 있습니다.
+DMI-CAD-Setup-1.0-preview3.exe 실행. Windows 10/11 x64, .NET 실행 환경과 CAD 엔진 포함. GitHub 로그인이 필요할 수 있습니다.
 프로젝트 v5는 이전 앱에서 열리지 않습니다. v1~v4 프로젝트를 읽고 새 이름으로 저장할 수 있습니다.
 
 ## 범위

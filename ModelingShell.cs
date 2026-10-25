@@ -104,7 +104,7 @@ sealed partial class ModelingWindow
         }
         void Separator(FlowLayoutPanel flow)=>flow.Controls.Add(new Panel{Width=1,Height=66,Margin=new Padding(9,3,9,3),BackColor=Color.FromArgb(202,209,217)});
         var features=Page("피처");
-        C(features,"스케치 시작","line",()=>Begin("rectangle"),"기준 평면에서 스케치를 시작합니다.");
+        C(features,"스케치 시작","line",GuideStart,"기준 평면에서 스케치를 시작합니다.");
         Separator(features);
         C(features,"돌출 보스\n/ 베이스","extrude",()=>OpenFeatureProperties(false,0),"닫힌 스케치로 재료를 추가합니다. 왼쪽 속성에서 깊이 설정 후 확인.");
         C(features,"돌출 컷","cut",()=>OpenFeatureProperties(false,1),"닫힌 스케치를 돌출해 기존 솔리드에서 재료를 제거합니다.");
@@ -117,14 +117,14 @@ sealed partial class ModelingWindow
         C(features,"회전 컷","cut",()=>OpenFeatureProperties(false,1,"revolve"),"회전한 스케치 형상으로 기존 솔리드를 잘라냅니다.");
         C(features,"모따기\n(개발 예정)","view",()=>{},"현재 미지원 기능입니다.",false);
         var sketches=Page("스케치");
-        C(sketches,"선택면\n스케치","circle",StartPickedSketch,"화면에서 선택한 평면에 스케치를 시작합니다. 도형을 자유롭게 바꿀 수 있습니다. 좌표와 치수를 편집할 수 있습니다.");
+        C(sketches,"스케치 시작","circle",GuideStart,"화면에서 선택한 평면에 스케치를 시작합니다. 도형을 자유롭게 바꿀 수 있습니다. 좌표와 치수를 편집할 수 있습니다.");
         C(sketches,"화면 면\n선택","part",StartFacePick,"모델에서 평면 면 클릭 → 면 스케치 시작. Esc로 선택 작업 취소.");
         C(sketches,"면에서\n스케치","part",ChooseSketchPlane,"현재 솔리드의 정밀 평면 면 목록에서 선택해 원/사각형 스케치를 시작합니다. 위치는 고정값으로 복사됩니다.");
         C(sketches,"스케치 종료","check",FinishSketchSession,"닫힌 스케치를 유지하고 모델 화면으로 돌아갑니다.");
         Separator(sketches);
-        C(sketches,"선 / 다각형","line",()=>Begin("polygon"),"점을 찍고 첫 점 또는 닫기를 눌러 폐곡선을 만듭니다.");
-        C(sketches,"사각형","rectangle",()=>Begin("rectangle"),"대각 두 점을 찍거나 왼쪽에서 좌표·너비·높이를 입력합니다.");
-        C(sketches,"원","circle",()=>Begin("circle"),"중심과 둘레를 찍거나 중심·반지름으로 정의합니다.");
+        C(sketches,"선 / 다각형","line",()=>GuideShape("polygon"),"점을 찍고 첫 점 또는 닫기를 눌러 폐곡선을 만듭니다.");
+        C(sketches,"사각형","rectangle",()=>GuideShape("rectangle"),"대각 두 점을 찍거나 왼쪽에서 좌표·너비·높이를 입력합니다.");
+        C(sketches,"원","circle",()=>GuideShape("circle"),"중심과 둘레를 찍거나 중심·반지름으로 정의합니다.");
         Separator(sketches);
         C(sketches,"치수 입력","dimension",()=>{OpenSketchProperties();u.Focus();},"왼쪽 속성에서 좌표와 치수를 입력합니다. 일반 스마트 치수/구속 솔버는 미지원입니다.");
         C(sketches,"치수 적용","check",ApplyDimensions,"입력값을 현재 2D 스케치에 적용합니다.");
@@ -153,11 +153,13 @@ sealed partial class ModelingWindow
         confirmation.Controls.Add(accept);confirmation.Controls.Add(cancel);
         tips.SetToolTip(accept,"현재 스케치 또는 피처 변경을 확인합니다.");tips.SetToolTip(cancel,"아직 적용하지 않은 입력을 버리고 모델로 돌아갑니다.");
         var props=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,ColumnCount=2,Padding=new Padding(8)};
+        propertyTable=props;
         props.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,48));props.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,52));
         void Row(string label,Control control)
         {
             int row=props.RowCount++;props.RowStyles.Add(new RowStyle(SizeType.Absolute,34));
-            props.Controls.Add(new Label{Text=label,Dock=DockStyle.Fill,TextAlign=ContentAlignment.MiddleLeft},0,row);
+            var caption=new Label{Text=label,Dock=DockStyle.Fill,TextAlign=ContentAlignment.MiddleLeft};
+            props.Controls.Add(caption,0,row);propertyRows[control]=(caption,row);
             control.Dock=DockStyle.Fill;props.Controls.Add(control,1,row);
         }
         plane.Items.AddRange(new object[]{"XY → +Z","XZ → −Y","YZ → +X"});plane.SelectedIndex=0;
@@ -184,7 +186,7 @@ sealed partial class ModelingWindow
         tips.SetToolTip(midplane,"전체 깊이의 절반씩 기준면 양쪽으로 생성합니다. 중간 평면에서는 방향 반전이 적용되지 않습니다.");
         tips.SetToolTip(reverse,"체크하면 기준면의 법선 반대 방향으로 돌출/잘라내기합니다. 깊이는 양수 mm입니다.");Row("U / 점 X mm",u);Row("V / 점 Y mm",v);Row("사각형 너비 mm",width);
         Row("사각형 높이 mm",height);Row("원 반지름 mm",radius);Row("꼭짓점 번호",vertex);Row("스냅 간격 mm",grid);
-        var apply=new Button{Text="스케치 치수 적용",Height=34,Dock=DockStyle.Fill};apply.Click+=(_,_)=>ApplyDimensions();
+        var apply=new Button{Text="스케치 치수 적용 · Enter",Height=34,Dock=DockStyle.Fill};apply.Click+=(_,_)=>ApplyDimensions();propertySketchApply=apply;
         int buttonRow=props.RowCount++;props.RowStyles.Add(new RowStyle(SizeType.Absolute,40));props.Controls.Add(apply,0,buttonRow);props.SetColumnSpan(apply,2);
         propertyContainer.Controls.Add(props);
         properties.Controls.Add(propertyContainer);properties.Controls.Add(propertyHint);properties.Controls.Add(confirmation);properties.Controls.Add(propertyHeading);
@@ -221,7 +223,7 @@ sealed partial class ModelingWindow
         context.Opening+=(_,_)=>editFeature.Enabled=editSketch.Enabled=delete.Enabled=selected>=0;
         tree.ContextMenuStrip=context;tree.NodeMouseClick+=(_,e)=>{if(e.Button==MouseButtons.Right)tree.SelectedNode=e.Node;};
         tree.NodeMouseDoubleClick+=(_,e)=>{if(e.Node.Tag is int)OpenFeatureProperties(true);};
-        Controls.Add(split);Controls.Add(commandTabs);Controls.Add(quick);Controls.Add(menu);Controls.Add(bottom);
+        Controls.Add(split);Controls.Add(BuildWorkflowGuide());Controls.Add(commandTabs);Controls.Add(quick);Controls.Add(menu);Controls.Add(bottom);
         shellReady=true;
     }
     void OpenSketchProperties()
@@ -270,7 +272,7 @@ sealed partial class ModelingWindow
         if(reverse.Enabled)throw new Exception("Midplane did not disable irrelevant direction control.");
         if(managerTabs.SelectedIndex!=1)throw new Exception("Property manager did not activate.");
         await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));Directory.CreateDirectory("preview");preview.Save(Path.Combine("preview","property-manager-1.0-preview2.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));Directory.CreateDirectory("preview");preview.Save(Path.Combine("preview","property-manager-1.0-preview3.png"),System.Drawing.Imaging.ImageFormat.Png);}
         await ConfirmProperty();
         if(document.Features.Count!=before+1||!document.Features[^1].Reverse||!document.Copy().Features[^1].Reverse||!document.Copy().Features[^1].Midplane||managerTabs.SelectedIndex!=0)throw new Exception("Property confirmation failed.");
         tree.SelectedNode=tree.Nodes[0].Nodes.Cast<TreeNode>().First(n=>n.Tag is int i&&i==0);string snapshot=JsonSerializer.Serialize(document,PartDocument.Json);
@@ -287,7 +289,7 @@ sealed partial class ModelingWindow
         OpenFeatureProperties(true);throughAll.Checked=true;offset.Value=0;reverse.Checked=false;
         if(depth.Enabled||midplane.Enabled)throw new Exception("Through-all left incompatible inputs enabled.");
         await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-1.0-preview2.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-1.0-preview3.png"),System.Drawing.Imaging.ImageFormat.Png);}
         await ConfirmProperty();
         if(!document.Features[1].ThroughAll)throw new Exception("Through-all edit was not committed.");
         tree.SelectedNode=tree.Nodes[0].Nodes.Cast<TreeNode>().First(n=>n.Tag is int i&&i==0);
