@@ -115,6 +115,8 @@ sealed partial class ModelingWindow
         C(features,"필렛\n(개발 예정)","view",()=>{},"현재 미지원 기능입니다.",false);
         C(features,"모따기\n(개발 예정)","view",()=>{},"현재 미지원 기능입니다.",false);
         var sketches=Page("스케치");
+        C(sketches,"선택면\n스케치","circle",StartPickedSketch,"화면에서 선택한 평면에 원 스케치를 시작합니다. 좌표와 치수를 편집할 수 있습니다.");
+        C(sketches,"화면 면\n선택","part",StartFacePick,"모델에서 평면 면 클릭 → 면 스케치 시작. Esc로 선택 작업 취소.");
         C(sketches,"면에서\n스케치","part",ChooseSketchPlane,"현재 솔리드의 정밀 평면 면 목록에서 선택해 원/사각형 스케치를 시작합니다. 위치는 고정값으로 복사됩니다.");
         C(sketches,"스케치 종료","check",FinishSketchSession,"닫힌 스케치를 유지하고 모델 화면으로 돌아갑니다.");
         Separator(sketches);
@@ -260,7 +262,7 @@ sealed partial class ModelingWindow
         if(reverse.Enabled)throw new Exception("Midplane did not disable irrelevant direction control.");
         if(managerTabs.SelectedIndex!=1)throw new Exception("Property manager did not activate.");
         await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));Directory.CreateDirectory("preview");preview.Save(Path.Combine("preview","property-manager-0.3.5.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));Directory.CreateDirectory("preview");preview.Save(Path.Combine("preview","property-manager-0.4.0.png"),System.Drawing.Imaging.ImageFormat.Png);}
         await ConfirmProperty();
         if(document.Features.Count!=before+1||!document.Features[^1].Reverse||!document.Copy().Features[^1].Reverse||!document.Copy().Features[^1].Midplane||managerTabs.SelectedIndex!=0)throw new Exception("Property confirmation failed.");
         tree.SelectedNode=tree.Nodes[0].Nodes.Cast<TreeNode>().First(n=>n.Tag is int i&&i==0);string snapshot=JsonSerializer.Serialize(document,PartDocument.Json);
@@ -277,7 +279,7 @@ sealed partial class ModelingWindow
         OpenFeatureProperties(true);throughAll.Checked=true;offset.Value=0;reverse.Checked=false;
         if(depth.Enabled||midplane.Enabled)throw new Exception("Through-all left incompatible inputs enabled.");
         await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-0.3.5.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-0.4.0.png"),System.Drawing.Imaging.ImageFormat.Png);}
         await ConfirmProperty();
         if(!document.Features[1].ThroughAll)throw new Exception("Through-all edit was not committed.");
         tree.SelectedNode=tree.Nodes[0].Nodes.Cast<TreeNode>().First(n=>n.Tag is int i&&i==0);

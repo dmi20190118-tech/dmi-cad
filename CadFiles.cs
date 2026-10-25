@@ -7,6 +7,7 @@ namespace DmiCad;
 sealed class Geometry
 {
     public List<Vector3[]> Triangles { get; } = new();
+    public List<int> FaceIds { get; } = new();
     public List<Vector3[]> Lines { get; } = new();
     public Vector3 Center { get; private set; }
     public float Extent { get; private set; } = 1;

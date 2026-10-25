@@ -225,3 +225,28 @@ with TemporaryDirectory(prefix="dmi-face-plane-") as folder:
     tilted=feature(polygon([[0,0],[20,0],[0,10]]))
     assert len(face_model([tilted])["sketchPlanes"])==4, "Tilted planar side was incorrectly treated as a principal plane."
 print("Exact face areas, three plane orientations, face-derived cuts and curved face exclusion passed.")
+
+# Display triangles preserve exact OCCT face IDs, including curved occluders.
+with TemporaryDirectory(prefix="dmi-pickmesh-") as folder:
+    folder=Path(folder)
+    source=folder/"pick.dmipart"
+    target=folder/"pick.stl"
+    base=feature(polygon([[0,0],[20,0],[20,10],[0,10]]))
+    source.write_text(json.dumps({"version":3,"units":"mm","features":[base]}),encoding="utf-8")
+    subprocess.run([engine,str(source),str(target)],check=True,timeout=180)
+    data=json.loads(Path(str(target)+".metrics.json").read_text())
+    rows=data["renderTriangles"]
+    assert len(rows)==12 and all(len(row)==10 for row in rows)
+    planes={p["faceIndex"]:p for p in data["sketchPlanes"]}
+    assert set(row[0] for row in rows)==set(planes)
+    for row in rows:
+        plane=planes[row[0]]
+        axis={"YZ":0,"XZ":1,"XY":2}[plane["plane"]]
+        assert all(abs(row[1+3*i+axis]-plane["offset"])<1e-8 for i in range(3))
+    base=feature({"kind":"circle","center":[0,0],"radius":5})
+    source.write_text(json.dumps({"version":3,"units":"mm","features":[base]}),encoding="utf-8")
+    subprocess.run([engine,str(source),str(target)],check=True,timeout=180)
+    data=json.loads(Path(str(target)+".metrics.json").read_text())
+    assert len(set(row[0] for row in data["renderTriangles"]))==3
+    assert len(data["sketchPlanes"])==2, "Curved wall must occlude without being a sketch plane."
+print("Face-tagged display mesh and curved occlusion metadata checks passed.")

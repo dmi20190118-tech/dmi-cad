@@ -11,7 +11,7 @@ sealed class RasterFrame : IDisposable
 }
 static class MeshRaster
 {
-    public static RasterFrame Render(Geometry geometry,int width,int height,Func<Vector3,(double x,double y,double z)> project)
+    public static RasterFrame Render(Geometry geometry,int width,int height,Func<Vector3,(double x,double y,double z)> project,int selectedFace=-1)
     {
         if(width<1||height<1||width>2000||height>2000)throw new ArgumentOutOfRangeException(nameof(width));
         var depths=new double[width*height];Array.Fill(depths,double.PositiveInfinity);
@@ -35,6 +35,7 @@ static class MeshRaster
                 brightness=.3+.7*Math.Abs(Vector3.Dot(normal,Vector3.Normalize(new Vector3(.35f,-.45f,.82f))));
             }
             byte red=(byte)Math.Clamp(75+110*brightness,0,255),green=(byte)Math.Clamp(110+105*brightness,0,255),blue=(byte)Math.Clamp(140+100*brightness,0,255);
+            if(selectedFace>=0&&geometry.FaceIds.Count==geometry.Triangles.Count&&geometry.FaceIds[index]==selectedFace){red=245;green=170;blue=50;}
             for(int y=y0;y<=y1;y++)
             for(int x=x0;x<=x1;x++)
             {
@@ -59,10 +60,20 @@ static class RasterChecks
     {
         var near=new[]{new Vector3(1,1,-5),new Vector3(9,1,-5),new Vector3(1,9,-5)};
         var far=new[]{new Vector3(1,1,5),new Vector3(9,1,5),new Vector3(1,9,5)};
-        var geometry=new Geometry();geometry.Triangles.Add(near);geometry.Triangles.Add(far);
+        var geometry=new Geometry();geometry.Triangles.Add(near);geometry.Triangles.Add(far);geometry.FaceIds.AddRange(new[]{17,23});
         using var first=MeshRaster.Render(geometry,12,12,p=>(p.X,p.Y,p.Z));
         if(first.TriangleIds[3*12+3]!=0||first.TriangleIds[11*12+11]!=-1)throw new Exception("Depth buffer did not preserve front geometry.");
-        geometry.Triangles.Reverse();
+        using(var selected=MeshRaster.Render(geometry,12,12,p=>(p.X,p.Y,p.Z),17))
+            if(selected.Image.GetPixel(3,3).R!=245)throw new Exception("Selected face highlight missing.");
+        geometry.Finish();
+        using(var viewport=new Viewport{Width=120,Height=120,Geometry=geometry})
+        {
+            viewport.SetView("top");
+            Point pixel=viewport.FindFacePixel(23);
+            if(pixel.X<0||viewport.PickFace(pixel)!=23)throw new Exception("Viewport selected a hidden face.");
+            if(viewport.PickFace(new Point(-1,-1))!=-1||viewport.PickFace(Point.Empty)!=-1)throw new Exception("Viewport background selection failed.");
+        }
+        geometry.Triangles.Reverse();geometry.FaceIds.Reverse();
         using var second=MeshRaster.Render(geometry,12,12,p=>(p.X,p.Y,p.Z));
         if(second.TriangleIds[3*12+3]!=1)throw new Exception("Visibility depends on triangle submission order.");
     }

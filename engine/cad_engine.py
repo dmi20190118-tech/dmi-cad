@@ -14,6 +14,8 @@ def convert(source, target):
         from parametric import build_part
         shape, metrics = build_part(source)
         write_shape(shape, target)
+        if Path(target).suffix.lower() == ".stl":
+            metrics["renderTriangles"] = face_triangles(shape)
         import json
         Path(str(target) + ".metrics.json").write_text(json.dumps(metrics), encoding="utf-8")
         return
@@ -31,6 +33,38 @@ def convert(source, target):
     if shape.IsNull():
         raise ValueError("CAD file contains no shape.")
     write_shape(shape, target)
+
+def face_triangles(shape):
+    # Use the same OCCT tessellation for display and picking, keeping exact face identity.
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopAbs import TopAbs_FACE, TopAbs_REVERSED
+    from OCP.TopoDS import TopoDS
+    from OCP.TopLoc import TopLoc_Location
+    from OCP.BRep import BRep_Tool
+    result = []
+    explorer = TopExp_Explorer(shape, TopAbs_FACE)
+    face_index = 0
+    while explorer.More():
+        face = TopoDS.Face_s(explorer.Current())
+        location = TopLoc_Location()
+        mesh = BRep_Tool.Triangulation_s(face, location)
+        if mesh is None:
+            raise ValueError("Face tessellation is missing.")
+        transform = location.Transformation()
+        for i in range(1, mesh.NbTriangles()+1):
+            a,b,c = mesh.Triangle(i).Get()
+            if face.Orientation() == TopAbs_REVERSED:
+                b,c = c,b
+            row = [face_index]
+            for node_index in (a,b,c):
+                p = mesh.Node(node_index).Transformed(transform)
+                row.extend((p.X(),p.Y(),p.Z()))
+            result.append(row)
+            if len(result) > 250000:
+                raise ValueError("Display/picking mesh exceeds 250000 triangles.")
+        face_index += 1
+        explorer.Next()
+    return result
 
 def write_shape(shape, target):
     output = Path(target).suffix.lower()

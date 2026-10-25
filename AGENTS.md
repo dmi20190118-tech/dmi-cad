@@ -163,3 +163,7 @@ docs/ACCEPTANCE-1.0.ko.md records the user's required workflow and remaining fac
 
 ## 0.3.5 exact face-plane snapshots
 SketchPlaneChoice lists current exact planar OCCT faces parallel to XY/XZ/YZ with offset, area, outward orientation and center. The native sketch command opens a list and starts a circle/rectangle sketch by copying plane/offset and initial inward/outward direction. This is a numeric snapshot, NOT an associative face attachment. No viewport clicking/highlight or tilted/curved surface sketches. Regeneration replaces the list and rejects stale objects. Project v3 unchanged. Help: docs/MODELING-0.3.5.ko.md.
+
+## 0.4.0 viewport face picking
+Native model display uses OCCT tessellation tagged with exact face indices. The same z-buffer display/pick projection chooses the frontmost face; curved/tilted faces occlude but cannot start principal-plane sketches. Selection highlights orange. Commands: screen face select → click → selected face sketch; Esc clears selection. Keep plane snapshot limits explicit: no associative references yet. Project v3 unchanged. docs/MODELING-0.4.0.ko.md records scope and test limits.
+The user authorized continuing toward 1.0 without asking per-version permission. Keep working within that goal, and do not label incomplete milestones 1.0.

@@ -51,13 +51,21 @@ sealed partial class ModelingWindow
     {
         var top=sketchPlanes.First(p=>p.Plane=="XY"&&Math.Abs(p.Offset-10)<1e-8&&!p.OutwardReverse);
         int count=document.Features.Count;
-        BeginFromFace(top,"circle",true);
+        StartFacePick();viewport.SetView("top");viewport.Update();
+        Point pixel=viewport.FindFacePixel(top.FaceIndex);
+        if(pixel.X<0)throw new Exception("Top face was not visible for picking.");
+        viewport.ClickForCheck(pixel);
+        if(pickedPlane?.FaceIndex!=top.FaceIndex||viewport.SelectedFace!=top.FaceIndex)throw new Exception("Screen face picking failed.");
+        await Task.Delay(100);Update();
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","face-selection-0.4.0.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        StartPickedSketch();
+        if(pickedPlane!=null||facePickActive)throw new Exception("Picked sketch retained a stale face target.");
         if(plane.SelectedIndex!=0||offset.Value!=10||!reverse.Checked||operation.SelectedIndex!=1)
             throw new Exception("Exact top face plane or inward cut direction was not applied.");
         u.Value=75;v.Value=50;radius.Value=3;ApplyDimensions();FinishSketchSession();
         OpenFeatureProperties(false,1);throughAll.Checked=true;
         await Task.Delay(100);Update();
-        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-0.3.5.png"),System.Drawing.Imaging.ImageFormat.Png);}
+        using(var preview=new Bitmap(Width,Height)){DrawToBitmap(preview,new Rectangle(0,0,Width,Height));preview.Save(Path.Combine("preview","property-manager-0.4.0.png"),System.Drawing.Imaging.ImageFormat.Png);}
         await ConfirmProperty();
         if(document.Features.Count!=count+1||document.Features[^1].Offset!=10||!document.Features[^1].Reverse||!document.Features[^1].ThroughAll)
             throw new Exception("Face-started through cut failed.");
@@ -65,7 +73,8 @@ sealed partial class ModelingWindow
         await File.WriteAllTextAsync(file,JsonSerializer.Serialize(document.Copy(),PartDocument.Json));
         var reopened=PartDocument.Parse(await File.ReadAllTextAsync(file));
         if(reopened.Features[^1].Offset!=10||!await Build(reopened))throw new Exception("Face plane disk reopen failed.");
-        await Undo(false);
+        await Undo(false);viewport.SetView("iso");
+        StartFacePick();CancelFacePick();if(facePickActive||viewport.SelectedFace!=-1)throw new Exception("Face pick cancel failed.");
         // An old selection object must never be reused after regeneration.
         if(sketchPlanes.Contains(top))throw new Exception("Stale face list survived regeneration.");
     }

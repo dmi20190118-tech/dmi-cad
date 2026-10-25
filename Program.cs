@@ -235,10 +235,13 @@ sealed class CadWindow : Form
     }
 }
 
-sealed class Viewport : Control
+sealed partial class Viewport : Control
 {
     public Model Model { get; set; } = new();
-    public Geometry? Geometry { get; set; }
+    Geometry? geometryValue;
+    public Geometry? Geometry { get=>geometryValue; set{geometryValue=value;SelectedFace=-1;Invalidate();} }
+    public int SelectedFace { get; set; } = -1;
+    public event Action<int>? FacePicked;
     public bool Wire { get; set; }
     public bool Sketch { get; set; }
     double yaw = -.65, pitch = .5;
@@ -268,6 +271,7 @@ sealed class Viewport : Control
             previous = e.Location;
             Invalidate();
         };
+        MouseClick+=(_,e)=>{if(e.Button==MouseButtons.Left){SelectedFace=PickFace(e.Location);Invalidate();FacePicked?.Invoke(SelectedFace);}};
         // SOLIDWORKS default wheel direction: toward user zooms in.
         MouseWheel += (_, e) => ZoomAt(e.Location, (float)Math.Pow(1.12, -e.Delta / 120.0));
         MouseDoubleClick += (_, e) => { if (e.Button == MouseButtons.Middle) Fit(); };
@@ -337,7 +341,7 @@ sealed class Viewport : Control
                     var xy = Project(point);
                     var q = point - geometry.Center;
                     return (xy.X * ratio, xy.Y * ratio, Rotate(q.X,q.Y,q.Z).z);
-                });
+                },SelectedFace);
                 g.DrawImage(frame.Image, new Rectangle(0,0,Width,Height));
             }
             else foreach (var triangle in geometry.Triangles) g.DrawPolygon(edge,triangle.Select(Project).ToArray());
