@@ -72,7 +72,7 @@ jobs:
               [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
               [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int height, bool repaint);
             }
-            '@
+          '@
             [DmiCapture]::MoveWindow($app.MainWindowHandle,0,0,1460,920,$true) | Out-Null
             Start-Sleep -Seconds 2
             $rect = New-Object DmiCapture+RECT
