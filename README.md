@@ -1,43 +1,49 @@
-# DMI CAD 0.2 — Windows CAD 파일 뷰어
+# 디엠아이(DMI) CAD 0.3
 
-Windows 10/11 x64에서 파일을 로컬로 읽고, 솔리드웍스 방식의 기본 마우스 조작으로 회전/이동/확대합니다. 파일은 서버로 업로드하지 않습니다.
+![DMI](https://static.wixstatic.com/media/b61e9b_4c68109deaca422494f28c350edb38de~mv2.png)
 
-## 지원 형식
+Windows용 정밀 스케치·솔리드 모델링 개발 버전입니다. Design · Mold · Injection의 통합 설계·제조 환경으로 확장하는 초기 단계입니다.
 
-| 형식 | 기능 / 제한 |
-|---|---|
-| STEP (.step/.stp) | Open CASCADE로 읽기, 삼각 메시 표시, STEP/IGES/STL 내보내기 |
-| IGES (.iges/.igs) | Open CASCADE로 읽기, 삼각 메시 표시, STEP/IGES/STL 내보내기 |
-| STL | ASCII/바이너리 읽기 및 바이너리 STL 내보내기 |
-| DXF | ASCII LINE, ARC, CIRCLE, 직선 LWPOLYLINE 표시. 블록·텍스트·스플라인·불지·기울어진 OCS 등 미지원 요소가 있으면 오류로 중단 |
-| .dmicad | 기존 예제 직육면체 프로젝트 |
+## 0.3의 핵심 작업
+- 사각형·원·닫힌 다각형을 화면에서 그리거나 숫자 치수로 정의
+- XY/XZ/YZ 평면과 오프셋·깊이로 정확한 솔리드 돌출
+- 재료 추가와 잘라내기, 유효한 단일 솔리드와 실제 부피 변화 검사
+- 피처 트리 선택·수정·삭제, 이후 피처 재계산
+- 실행 취소/다시 실행, .dmipart 저장/열기
+- 정확한 형상의 STEP/IGES 및 STL 출력
+- 모델 이름·리비전·표시 메시 외형을 가공 지시서 초안에 전달
+- 기존 STEP/IGES/STL/기본 DXF 뷰어와 지시서 창 유지
 
-SOLIDWORKS (.sldprt/.sldasm), CATIA (.CATPart/.CATProduct), Cimatron/Elite 원본, DWG는 직접 읽지 못합니다. 2025 등 특정 버전 호환도 보장하지 않습니다. 별도 상용 변환 SDK와 라이선스가 필요합니다. 원래 CAD에서 STEP/IGES/기본 2D DXF로 내보내서 여세요.
+이는 일반 스케치 구속 솔버나 완성된 SOLIDWORKS 대체품이 아닙니다.
+필렛·곡면 편집·정밀 면/모서리 선택·치수 측정·연동 도면·조립·금형·CAM/NC 생성은 아직 없습니다.
+PFM·Cimatron·CATIA·SOLIDWORKS·DWG 원본 읽기도 미지원입니다.
 
-ISO가 NC G코드를 뜻한다면 별도의 가공 경로 기능이 필요합니다. ISO 10303 형식은 STEP으로 처리합니다.
+## 바로 시작하기
+[0.3 모델링 작업 안내](docs/MODELING-0.3.ko.md)
 
-읽은 모델은 표시용이며 편집 가능한 피처 이력을 복원하지 않습니다. 재질·조립 트리·PMI·레이어·텍스트 보존을 보장하지 않습니다. STEP↔IGES 변환 시에도 속성 손실 가능성이 있습니다. STL은 삼각 메시로 변환되어 정밀 곡면 정보가 사라집니다.
+기본 순서: 사각형 → 좌표/너비/높이 입력 → 치수 적용 → 평면/깊이 설정 → 돌출 추가.
+예제 만들기는 실제 엔진으로 플레이트·구멍·보스 3개 피처를 만듭니다.
+[예제 프로젝트](examples/plate.dmipart)를 내려받아 열어볼 수도 있습니다.
 
-파일당 128 MB, 메시 25만 삼각형, 엔진 처리 3분으로 제한합니다. 대형 모델은 거친 메시/분할 파일로 내보내세요. 크기 표시는 파일 좌표 기준입니다. STL/DXF는 원래 내보내기 단위를 별도로 확인하세요. 오류가 나면 이전 모델을 유지합니다.
-
-## 사용
-파일 → 열기에서 모델을 선택합니다. 변환 / 내보내기에서 출력 형식을 고릅니다. DXF 선 도면을 STL 입체나 STEP 솔리드로 자동 변환하지 않습니다.
-
-- 가운데 버튼 드래그: 회전
-- Ctrl+가운데 버튼: 이동
-- Shift+가운데 버튼: 확대/축소
-- 휠 아래로 확대, 위로 축소 (포인터 기준)
-- 가운데 버튼 더블클릭: 화면 맞춤
-
-정밀 스케치/곡면 편집, CAM/NC 검증은 아직 없습니다.
-
-## 설치
-[GitHub Actions](https://github.com/dmi20190118-tech/dmi-cad/actions)에서 성공한 최신 실행의 Artifacts → DMI-CAD-Windows-x64를 받으세요.
-ZIP을 풀고 DMI-CAD-Setup-0.2.0.exe를 실행합니다. .NET과 CAD 엔진이 포함되며 별도 Python 설치가 필요 없습니다. 설치파일은 코드 서명이 없는 시제품입니다.
+## Windows 설치 파일
+[Actions](https://github.com/dmi20190118-tech/dmi-cad/actions)의 성공한 0.3 빌드에서 Artifacts → DMI-CAD-Windows-x64를 받으세요.
+ZIP을 풀고 DMI-CAD-Setup-0.3.0.exe를 실행합니다. Windows 10/11 x64, .NET과 CAD 엔진 포함.
+코드 서명이 없는 초기 제품이며 실제 고객 모델·현장 작업에는 추가 검증이 필요합니다.
 
 ## 검증
-Windows CI에서 STL/DXF 입출력 검사, 번들 엔진의 STEP/IGES/STL 변환 검사, 창 시작 검사 후 설치파일을 생성합니다.
-실제 고객 파일의 형상 정확도와 모든 UI 조작은 추가 검증이 필요합니다.
+빌드 과정에서 샘플 STEP/IGES 변환, 정밀 부피 계산, 돌출·빼기·피처 변경, STEP 재읽기, XY/XZ/YZ 평면, 자기교차·빈 절삭·분리 솔리드 거절, 프로젝트 복사·저장 구조, STL/DXF와 지시서 검사를 실행합니다.
+실제 GUI에서 3피처 모델을 생성하고 화면을 캡처한 뒤 설치파일을 만듭니다.
+수동 스케치 조작·실제 장비·모든 버전 파일 호환을 검증했다는 뜻은 아닙니다.
 
-## 개발
-.NET 8 Windows Forms, Python 3.11, cadquery-ocp 7.8 계열, PyInstaller를 사용합니다. 정확한 빌드 절차는 .github/workflows/windows.yml을 참고하세요. 배포 라이선스와 소스 위치는 THIRD-PARTY.md에 있습니다.
+## 모바일
+[기존 모바일 체험판](https://headless-wjqqtfyrafq-khigp012-1408.wix-site-host.com)은 지시서와 예제 상자 체험입니다.
+이 모바일 페이지에서 Windows 0.3 정밀 CAD 엔진이 실행되지는 않습니다.
+
+## 도움말과 방향
+- [도움말 목록](docs/README.md)
+- [통합 개발 로드맵](PRODUCT-ROADMAP.md)
+- [가공 지시서](MACHINING-SHEETS.md)
+- [라이선스 고지](THIRD-PARTY.md)
+- [원본 DMI 브랜드](docs/BRAND.ko.md)
+
+실제 Excel 양식·조건표와 NC/장비 샘플은 아직 확보되지 않았습니다. NC 자동 대조·자동 지시서·생산용 NC 출력은 제공하지 않습니다.

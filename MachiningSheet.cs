@@ -121,6 +121,14 @@ sealed class MachiningSheetWindow : Form
         var notice=new Label {Text="임시 양식 · 한 공정용 · 실제 Excel 양식/조건표 및 NC 자동 연동은 추후 적용",Dock=DockStyle.Top,Height=36,Padding=new Padding(8),ForeColor=Color.DarkGoldenrod};
         Controls.Add(table);Controls.Add(findings);Controls.Add(actions);Controls.Add(notice);
     }
+    public void SetModelReference(string modelName, int revision, System.Numerics.Vector3 size)
+    {
+        inputs["drawing"].Text = modelName;
+        inputs["revision"].Text = revision.ToString();
+        inputs["dimensions"].Text = $"표시 메시 외형: {size.X:G7} × {size.Y:G7} × {size.Z:G7} mm. 공차는 별도 확인.";
+        inputs["notes"].Text = "모델에서 전달된 작성 시점의 초안입니다. 모델 변경 후 새로 작성하세요. NC 자동 대조는 미구현.";
+        ValidateSheet(false);
+    }
     SheetData Data()=>new() {Values=inputs.ToDictionary(p=>p.Key,p=>p.Value.Text)};
     bool ValidateSheet(bool popup)
     {

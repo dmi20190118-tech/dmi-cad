@@ -10,12 +10,25 @@ static class Program
     {
         if (args.Length > 0 && args[0] == "--self-test")
         {
-            try { ImportChecks.Run(); SheetChecks.Run(); Environment.ExitCode = 0; }
+            try { ImportChecks.Run(); SheetChecks.Run(); PartChecks.Run(); Environment.ExitCode = 0; }
             catch (Exception ex) { if (args.Length > 1) File.WriteAllText(args[1],ex.ToString()); Environment.ExitCode = 1; }
             return;
         }
         ApplicationConfiguration.Initialize();
-        Application.Run(new CadWindow());
+        var main = new ModelingWindow();
+        if (args.Length > 1 && args[0] == "--demo-ready")
+        {
+            main.Shown += async (_, _) =>
+            {
+                try
+                {
+                    if (await main.LoadDemo()) await File.WriteAllTextAsync(args[1], "ready");
+                    else await File.WriteAllTextAsync(args[1] + ".error", "Example model generation failed.");
+                }
+                catch (Exception ex) { await File.WriteAllTextAsync(args[1] + ".error", ex.ToString()); }
+            };
+        }
+        Application.Run(main);
     }
 }
 

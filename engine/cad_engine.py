@@ -9,6 +9,14 @@ from OCP.StlAPI import StlAPI_Writer
 
 def convert(source, target):
     ext = Path(source).suffix.lower()
+    metrics = None
+    if ext == ".dmipart":
+        from parametric import build_part
+        shape, metrics = build_part(source)
+        write_shape(shape, target)
+        import json
+        Path(str(target) + ".metrics.json").write_text(json.dumps(metrics), encoding="utf-8")
+        return
     if ext in (".step", ".stp"):
         reader = STEPControl_Reader()
     elif ext in (".iges", ".igs"):
@@ -22,6 +30,9 @@ def convert(source, target):
     shape = reader.OneShape()
     if shape.IsNull():
         raise ValueError("CAD file contains no shape.")
+    write_shape(shape, target)
+
+def write_shape(shape, target):
     output = Path(target).suffix.lower()
     if output == ".stl":
         mesh = BRepMesh_IncrementalMesh(shape, 0.1, False, 0.35, True)

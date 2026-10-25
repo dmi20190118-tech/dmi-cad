@@ -7,7 +7,7 @@ concurrency:
   group: windows-main
   cancel-in-progress: true
 permissions:
-  contents: read
+  contents: write
 jobs:
   windows:
     runs-on: windows-latest
@@ -36,6 +36,8 @@ jobs:
           New-Item publish/engine/source -ItemType Directory -Force
           Copy-Item engine/*.py publish/engine/source/
           Copy-Item THIRD-PARTY.md publish/
+          Copy-Item docs publish/docs -Recurse
+          Copy-Item examples publish/examples -Recurse
           python -m pip freeze | Out-File publish/engine/dependencies.txt -Encoding utf8
           python engine/copy_licenses.py publish/engine/licenses
       - name: Verify STL and DXF import
@@ -46,20 +48,45 @@ jobs:
             if (Test-Path import-errors.txt) { Get-Content import-errors.txt }
             throw "Geometry import checks failed."
           }
-      - name: Verify window opens
+      - name: Verify modeled GUI and capture preview
         shell: pwsh
         run: |
-          $app = Start-Process ./publish/DMI-CAD.exe -PassThru
+          $app = Start-Process ./publish/DMI-CAD.exe -ArgumentList @('--demo-ready','demo-ready.txt') -PassThru
           try {
-            $opened = $false
-            for ($i = 0; $i -lt 30; $i++) {
+            $ready = $false
+            for ($i = 0; $i -lt 240; $i++) {
               Start-Sleep -Seconds 1
               $app.Refresh()
-              if ($app.HasExited) { throw "Application exited during startup." }
-              if ($app.MainWindowHandle -ne 0) { $opened = $true; break }
+              if ($app.HasExited) { throw "Application exited during model generation." }
+              if (Test-Path demo-ready.txt.error) { throw (Get-Content demo-ready.txt.error -Raw) }
+              if (Test-Path demo-ready.txt) { $ready = $true; break }
             }
-            if (-not $opened) { throw "Application did not open a main window." }
-            Write-Host "Main window opened successfully."
+            if (-not $ready -or $app.MainWindowHandle -eq 0) { throw "Modeled window did not become ready." }
+            Add-Type -AssemblyName System.Drawing
+            Add-Type @'
+            using System;
+            using System.Runtime.InteropServices;
+            public static class DmiCapture {
+              [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
+              [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+              [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
+              [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int height, bool repaint);
+            }
+            '@
+            [DmiCapture]::MoveWindow($app.MainWindowHandle,0,0,1460,920,$true) | Out-Null
+            Start-Sleep -Seconds 2
+            $rect = New-Object DmiCapture+RECT
+            [DmiCapture]::GetWindowRect($app.MainWindowHandle,[ref]$rect) | Out-Null
+            $bitmap = New-Object System.Drawing.Bitmap ($rect.Right-$rect.Left),($rect.Bottom-$rect.Top)
+            $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+            $dc = $graphics.GetHdc()
+            try { if (-not [DmiCapture]::PrintWindow($app.MainWindowHandle,$dc,2)) { throw "Window capture failed." } }
+            finally { $graphics.ReleaseHdc($dc) }
+            New-Item preview -ItemType Directory -Force
+            $bitmap.Save((Join-Path $pwd 'preview/modeler-0.3.png'),[System.Drawing.Imaging.ImageFormat]::Png)
+            $graphics.Dispose()
+            $bitmap.Dispose()
+            Write-Host "Three-feature model generated in the actual GUI."
           } finally {
             if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force }
           }
@@ -76,6 +103,22 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: DMI-CAD-Windows-x64
-          path: installer-output/DMI-CAD-Setup-0.2.0.exe
+          path: installer-output/DMI-CAD-Setup-0.3.0.exe
           if-no-files-found: error
           retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DMI-CAD-0.3-Preview
+          path: preview/modeler-0.3.png
+      - name: Save actual modeler preview
+        shell: pwsh
+        run: |
+          git config user.name "DMI CAD Preview"
+          git config user.email "preview@users.noreply.github.com"
+          git add preview/modeler-0.3.png
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "Capture actual DMI CAD 0.3 modeler [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          }

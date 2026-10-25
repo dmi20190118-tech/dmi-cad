@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "units": "mm",
+  "name": "예제 플레이트",
+  "revision": 1,
+  "features": [
+    {
+      "id": "plate-base",
+      "name": "기본 플레이트",
+      "operation": "add",
+      "plane": "XY",
+      "offset": 0,
+      "depth": 10,
+      "sketch": {
+        "kind": "polygon",
+        "dimensionMode": "rectangle",
+        "points": [
+          [
+            0,
+            0
+          ],
+          [
+            100,
+            0
+          ],
+          [
+            100,
+            70
+          ],
+          [
+            0,
+            70
+          ]
+        ]
+      }
+    },
+    {
+      "id": "plate-hole",
+      "name": "관통 원 구멍",
+      "operation": "cut",
+      "plane": "XY",
+      "offset": 0,
+      "depth": 10,
+      "sketch": {
+        "kind": "circle",
+        "center": [
+          50,
+          35
+        ],
+        "radius": 10
+      }
+    },
+    {
+      "id": "plate-boss",
+      "name": "상단 보스",
+      "operation": "add",
+      "plane": "XY",
+      "offset": 10,
+      "depth": 15,
+      "sketch": {
+        "kind": "polygon",
+        "dimensionMode": "rectangle",
+        "points": [
+          [
+            5,
+            5
+          ],
+          [
+            25,
+            5
+          ],
+          [
+            25,
+            25
+          ],
+          [
+            5,
+            25
+          ]
+        ]
+      }
+    }
+  ]
+}
